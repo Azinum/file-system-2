@@ -37,10 +37,8 @@ struct FSFILE {
     char name[FILE_NAME_SIZE];
     unsigned long hashed_name;
     char type;
-    int size;
     int mode;
     unsigned long first_block;
-    // unsigned long last_block;
 };
 
 #define TOTAL_BLOCK_SIZE sizeof(struct Data_block)

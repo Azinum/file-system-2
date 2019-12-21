@@ -15,8 +15,10 @@ int main(int argc, char** argv) {
     FSFILE* file = fs_open("test.txt", "w");
 
     if (file) {
-        const char* string = "This is a small file. END\n";
+        const char* string = "This is a small file.\n";
+        const char* string2 = "And this is the END\n";
         fs_write(string, strlen(string), file);
+        fs_write(string2, strlen(string2), file);
         fs_read(file, stdout);
         fs_close(file);
     }

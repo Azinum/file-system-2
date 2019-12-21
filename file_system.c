@@ -95,7 +95,7 @@ struct Data_block* allocate_blocks(int size) {
     if (block != NULL) {
         block->block_type = BLOCK_USED;
         block->bytes_used = 0;
-        struct Data_block* next = allocate_blocks(size - BLOCK_SIZE/*TOTAL_BLOCK_SIZE */);
+        struct Data_block* next = allocate_blocks(size - BLOCK_SIZE);
         if (next != NULL) {
             block->next = get_absolute_address(next);
         }
@@ -141,6 +141,10 @@ FSFILE* allocate_file(const char* path, int file_type) {
     return file;
 }
 
+// Different cases:
+// - When bytes_used != 0
+// - When the size is less than BLOCK_SIZE - bytes_used
+// - When the size is greater than BLOCK_SIZE - bytes_used but is less than BLOCK_SIZE
 void write_to_blocks(const void* data, int size, int* bytes_written, struct Data_block* block) {
     if (size <= 0) {
         return;
@@ -148,25 +152,34 @@ void write_to_blocks(const void* data, int size, int* bytes_written, struct Data
     if (!block) {
         return;
     }
-
-    int bytes_to_write = BLOCK_SIZE - (BLOCK_SIZE % size);
-    if (!bytes_to_write) {
-        bytes_to_write = BLOCK_SIZE;
-    }
     
-    if (size <= BLOCK_SIZE) {
-        memcpy(block->data, data, size);
-        *bytes_written += size;
+    int bytes_avaliable = (BLOCK_SIZE - (block->bytes_used));
+
+    int bytes_to_write = 0;
+
+    if (size <= bytes_avaliable) {
+        bytes_to_write = size;
+    }
+    else {
+        bytes_to_write = size - bytes_avaliable;
+    }
+
+    if (block->bytes_used >= BLOCK_SIZE || bytes_avaliable == 0) {
+        struct Data_block* next = (struct Data_block*)&fs_state.disk[block->next];
+        if (next) {
+            write_to_blocks(data, size, bytes_written, next);
+        }
         return;
     }
 
-    memcpy(block->data, data, BLOCK_SIZE);
-    *bytes_written += BLOCK_SIZE;
+    memcpy(block->data + block->bytes_used, data, bytes_to_write);
+    *bytes_written += bytes_to_write;
+    block->bytes_used += bytes_to_write;
 
     if (block->next != 0) {
         struct Data_block* next = (struct Data_block*)&fs_state.disk[block->next];
         if (next) {
-            write_to_blocks(data + BLOCK_SIZE, size - BLOCK_SIZE, bytes_written, next);
+            write_to_blocks(data + bytes_to_write, size - bytes_to_write, bytes_written, next);
         }
     }
 }
@@ -187,6 +200,7 @@ void read_file_contents(struct Data_block* block, FILE* output) {
 
 }
 
+// Addresses <= 0 are invalid
 unsigned long get_absolute_address(void* address) {
     if (!is_initialized()) {
         return 0;
@@ -285,6 +299,7 @@ void fs_close(FSFILE* file) {
     }
 }
 
+// TODO: Cleanup!
 int fs_write(const void* data, int size, FSFILE* file) {
     if (!file || !is_initialized()) {
         return -1;
@@ -292,21 +307,37 @@ int fs_write(const void* data, int size, FSFILE* file) {
     if (MODE_WRITE != (file->mode & MODE_WRITE)) {
         return -1;
     }
-    if (file->size == 0) {
-        struct Data_block* first_block = allocate_blocks(size);
-        if (first_block) {
-            int bytes_written = 0;
-            file->first_block = get_absolute_address(first_block);
-            write_to_blocks(data, size, &bytes_written, first_block);
+    int bytes_written = 0;
 
-            if (bytes_written != size) {
-                return -1;
+    if (file->first_block != 0) {
+
+        struct Data_block* block = (struct Data_block*)&fs_state.disk[file->first_block];
+        if (block) {
+            if (size < (BLOCK_SIZE - block->bytes_used)) {
+                write_to_blocks(data, size, &bytes_written, block);
             }
-            file->size = size;
-            return 0;
+            else {
+                struct Data_block* next_blocks = allocate_blocks(size);
+                if (next_blocks) {
+                    unsigned long addr = get_absolute_address(next_blocks);
+                    block->next = addr;
+                    write_to_blocks(data, size, &bytes_written, block);
+                }
+            }
         }
     }
-    return -1;
+    else {
+        struct Data_block* block = allocate_blocks(size);
+        if (block) {
+            file->first_block = get_absolute_address(block);
+            write_to_blocks(data, size, &bytes_written, block);
+        }
+    }
+
+    if (bytes_written != size) {
+        return -1;
+    }
+    return 0;
 }
 
 void fs_print_file_info(const FSFILE* file, FILE* output) {
@@ -318,7 +349,7 @@ void fs_print_file_info(const FSFILE* file, FILE* output) {
     if (file->type == T_DIR) fprintf(output, "/");
     fprintf(output, "\n");
     fprintf(output, "type: %i\n", file->type);
-    fprintf(output, "size: %i bytes\n", file->size);
+    /* fprintf(output, "size: %i bytes\n", get_file_size()); */
     fprintf(output, "mode: %i\n", file->mode);
     fprintf(output, "first block: $%lu\n", file->first_block);
 }
