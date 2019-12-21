@@ -197,7 +197,6 @@ void read_file_contents(struct Data_block* block, FILE* output) {
     if (next) {
         read_file_contents(next, output);
     }
-
 }
 
 // Addresses <= 0 are invalid
@@ -375,8 +374,8 @@ void fs_dump_disk(const char* path) {
     FILE* file = fopen(path, "w");
     if (file) {
         fwrite(fs_state.disk, sizeof(char), fs_state.disk_header.disk_size, file);
+        fclose(file);
     }
-    fclose(file);
 }
 
 void fs_free() {

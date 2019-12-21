@@ -6,25 +6,89 @@
 
 #include "file_system.h"
 
+static void print_help(FILE* out);
+static void use_menu(int argc, char** argv, FILE* output);
+
 int main(int argc, char** argv) {
     if (fs_init(1024 * 8) != 0) {
         fprintf(stderr, "Failed to initialize file system\n");
         return -1;
     }
 
-    FSFILE* file = fs_open("test.txt", "w");
+    use_menu(argc, argv, stdout);
 
-    if (file) {
-        const char* string = "This is a small file.\n";
-        const char* string2 = "And this is the END\n";
-        fs_write(string, strlen(string), file);
-        fs_write(string2, strlen(string2), file);
-        fs_read(file, stdout);
-        fs_close(file);
-    }
+    // FSFILE* file = fs_open("test.txt", "w");
+
+    // if (file) {
+    //     const char* string = "This is a small file.\n";
+    //     const char* string2 = "And this is the END\n";
+    //     fs_write(string, strlen(string), file);
+    //     fs_write(string2, strlen(string2), file);
+    //     fs_read(file, stdout);
+    //     fs_close(file);
+    // }
 
     fs_dump_disk("./data/test.disk");
 
     fs_free();
     return 0;
+}
+
+void print_help(FILE* out) {
+    fprintf(out,
+        "COMMANDS:\n"
+        " a <file>      # Add new file\n"
+        " w <file> \"contents\" # Open and write to file\n"
+        " h             # Print this list\n"
+    );
+}
+
+void use_menu(int argc, char** argv, FILE* output) {
+    if (argc < 2) {
+        return;
+    }
+
+    switch (*argv[1]) {
+        case 'a': {
+            if (argc >= 2) {
+                FSFILE* file = fs_open(argv[2], "w");
+                if (file) {
+                    fs_print_file_info(file, output);
+                    fs_close(file);
+                }
+            }
+        }
+            break;
+
+        case 'd': {
+            if (argc >= 2) {
+                FSFILE* file = fs_create_dir(argv[2]);
+                if (file) {
+                    fs_print_file_info(file, output);
+                    fs_close(file);
+                }
+            }
+        }
+            break;
+
+        case 'w': {
+            if (argc >= 3) {
+                FSFILE* file = fs_open(argv[2], "w");
+                if (file) {
+                    int size = strlen(argv[3]);
+                    fs_write(argv[3], size, file);
+                    fs_close(file);
+                }
+            }
+        }
+            break;
+
+        case 'h':
+            print_help(stdout);
+            break;
+
+        default:
+            break;
+    }
+
 }
