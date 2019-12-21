@@ -15,18 +15,18 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    use_menu(argc, argv, stdout);
-
-    // FSFILE* file = fs_open("test.txt", "w");
-
-    // if (file) {
-    //     const char* string = "This is a small file.\n";
-    //     const char* string2 = "And this is the END\n";
-    //     fs_write(string, strlen(string), file);
-    //     fs_write(string2, strlen(string2), file);
-    //     fs_read(file, stdout);
-    //     fs_close(file);
-    // }
+    if (argc > 1) {
+        use_menu(argc, argv, stdout);
+    }
+    else {
+        FSFILE* file = fs_open("test.txt", "w");
+        if (file) {
+            const char* string = "This is a small file.\n";
+            fs_write(string, strlen(string), file);
+            fs_read(file, stdout);
+            fs_close(file);
+        }
+    }
 
     fs_dump_disk("./data/test.disk");
 
@@ -38,6 +38,7 @@ void print_help(FILE* out) {
     fprintf(out,
         "COMMANDS:\n"
         " a <file>      # Add new file\n"
+        " d <file>      # Add new directory\n"
         " w <file> \"contents\" # Open and write to file\n"
         " h             # Print this list\n"
     );
