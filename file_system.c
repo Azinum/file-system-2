@@ -129,16 +129,15 @@ FSFILE* allocate_file(const char* path, int file_type) {
     FSFILE* file = allocate(TOTAL_FILE_HEADER_SIZE);
 
     if (file) {
+        file->block_type = BLOCK_FILE_HEADER;
+        strcpy(file->name, path);
+        file->hashed_name = hash2(file->name);
+        file->type = file_type;
 
         if (dir) {
             unsigned long file_addr = get_absolute_address(file);
             fs_write(&file_addr, sizeof(unsigned long), dir);
         }
-
-        file->block_type = BLOCK_FILE_HEADER;
-        strcpy(file->name, path);
-        file->hashed_name = hash2(file->name);
-        file->type = file_type;
     }
 
     return file;
@@ -210,16 +209,12 @@ void read_dir_contents(struct Data_block* block, FILE* output) {
         return;
     }
 
-    /* for (int i = 0; i < block->bytes_used; i += (sizeof(unsigned long))) {
-        FSFILE* file = (FSFILE*)(&block->data[i]);
+     for (unsigned long i = 0; i < block->bytes_used; i += (sizeof(unsigned long))) {
+        unsigned long addr = *(unsigned long*)(&block->data[i]);
+        FSFILE* file = (FSFILE*)get_ptr(addr);
         if (file) {
             fprintf(output, "%s\n", file->name);
         }
-    }
-    fprintf(output, "\n"); */
-
-    for (int i = 0; i < block->bytes_used; i++) {
-        fprintf(output, "%c", block->data[i]);
     }
 
 
@@ -255,6 +250,7 @@ int fs_init(unsigned long disk_size) {
     fs_state.is_initialized = 1;
     fs_state.disk_header.disk_size = sizeof(char) * disk_size;
     fs_state.disk = calloc(fs_state.disk_header.disk_size, sizeof(char));
+    fs_state.current_directory = NULL;
     if (!fs_state.disk) {
         fprintf(stderr, "%s: Failed to allocate memory for disk\n", __FUNCTION__);
         return -1;
@@ -294,13 +290,13 @@ FSFILE* fs_open(const char* path, const char* mode) {
             break;
 
         case 'r': {
-            printf("File mode READ\n");
+
 
         }
             break;
 
         case 'a': {
-            printf("File mode APPEND\n");
+
 
         }
             break;
@@ -380,14 +376,12 @@ void fs_print_file_info(const FSFILE* file, FILE* output) {
     if (!file || !output) {
         return;
     }
-
-    fprintf(output, "name: %s", file->name);
-    (file->type == T_DIR) ? fprintf(output, "/") : (void)0;
-    fprintf(output, "\n");
+    
+    fprintf(output, "name: %s\n", file->name);
     fprintf(output, "type: %i\n", file->type);
-    /* fprintf(output, "size: %i bytes\n", get_file_size()); */
     fprintf(output, "mode: %i\n", file->mode);
-    fprintf(output, "first block: $%lu\n", file->first_block);
+    fprintf(output, "first block: %lu\n", file->first_block);
+    fprintf(output, "header addr: %lu\n", get_absolute_address((void*)file));
 }
 
 void fs_read(const FSFILE* file, FILE* output) {
