@@ -13,7 +13,7 @@
 
 struct FS_disk_header {
     int magic;
-    unsigned int disk_size;
+    unsigned long disk_size;
     unsigned long root_directory;
 };
 
@@ -28,14 +28,16 @@ static struct FS_state fs_state;
 
 static int is_initialized();
 static struct Data_block* allocate_blocks(int size);
-static void flush(int from, int to);
+static void flush(unsigned long from, unsigned long to);
 static void* allocate(int size);
 static FSFILE* allocate_file(const char* path, int file_type);
 static void write_to_blocks(const void* data, int size, int* bytes_written, struct Data_block* block);
 static void read_file_contents(struct Data_block* block, FILE* output);
+static void read_dir_contents(struct Data_block* block, FILE* output);
+
 
 // Get pointer from address/index on disk
-inline void* get_ptr(int address);
+inline void* get_ptr(unsigned long address);
 inline unsigned long get_absolute_address(void* address);
 
 int is_initialized() {
@@ -106,15 +108,12 @@ struct Data_block* allocate_blocks(int size) {
     return block;
 }
 
-void flush(int from, int to) {
-    if (!is_initialized() || from > to) {
-        return;
-    }
-    if (to > fs_state.disk_header.disk_size) {
+void flush(unsigned long from, unsigned long to) {
+    if (!is_initialized() || from > to || to > fs_state.disk_header.disk_size) {
         return;
     }
 
-    for (int i = from; i < to; i++) {
+    for (unsigned long i = from; i < to; i++) {
         fs_state.disk[i] = 0;
     }
 
@@ -126,14 +125,19 @@ FSFILE* allocate_file(const char* path, int file_type) {
     }
 
     FSFILE* dir = fs_state.current_directory;
-    (void)dir;
 
-    FSFILE* file;
+    FSFILE* file = allocate(TOTAL_FILE_HEADER_SIZE);
 
-    file = allocate(TOTAL_FILE_HEADER_SIZE);
     if (file) {
+
+        if (dir) {
+            unsigned long file_addr = get_absolute_address(file);
+            fs_write(&file_addr, sizeof(unsigned long), dir);
+        }
+
         file->block_type = BLOCK_FILE_HEADER;
         strcpy(file->name, path);
+        file->hashed_name = hash2(file->name);
         file->type = file_type;
     }
 
@@ -187,7 +191,10 @@ void read_file_contents(struct Data_block* block, FILE* output) {
     if (!block || !output || !is_initialized()) {
         return;
     }
-    fprintf(output, "%s", block->data);
+
+    for (int i = 0; i < block->bytes_used; i++) {
+        fprintf(output, "%c", block->data[i]);
+    }
 
     if (block->next <= 0) {
         return;
@@ -198,9 +205,34 @@ void read_file_contents(struct Data_block* block, FILE* output) {
     }
 }
 
-void* get_ptr(int address) {
+void read_dir_contents(struct Data_block* block, FILE* output) {
+    if (!block || !output || !is_initialized()) {
+        return;
+    }
+
+    /* for (int i = 0; i < block->bytes_used; i += (sizeof(unsigned long))) {
+        FSFILE* file = (FSFILE*)(&block->data[i]);
+        if (file) {
+            fprintf(output, "%s\n", file->name);
+        }
+    }
+    fprintf(output, "\n"); */
+
+    for (int i = 0; i < block->bytes_used; i++) {
+        fprintf(output, "%c", block->data[i]);
+    }
+
+
+    struct Data_block* next = (struct Data_block*)get_ptr(block->next);
+    if (next) {
+        read_dir_contents(next, output);
+    }
+
+}
+
+void* get_ptr(unsigned long address) {
     if (!is_initialized() || !fs_state.disk) {
-        return 0;
+        return NULL;
     }
     if (address > 0 && address < fs_state.disk_header.disk_size) {
         return (void*)&fs_state.disk[address];
@@ -216,31 +248,29 @@ unsigned long get_absolute_address(void* address) {
     return (unsigned long)address - (unsigned long)fs_state.disk;
 }
 
-int fs_init(int disk_size) {
+int fs_init(unsigned long disk_size) {
     if (is_initialized()) {
         return -1;
     }
     fs_state.is_initialized = 1;
     fs_state.disk_header.disk_size = sizeof(char) * disk_size;
-    fs_state.disk = malloc(fs_state.disk_header.disk_size);
+    fs_state.disk = calloc(fs_state.disk_header.disk_size, sizeof(char));
     if (!fs_state.disk) {
         fprintf(stderr, "%s: Failed to allocate memory for disk\n", __FUNCTION__);
         return -1;
     }
-    struct FS_disk_header* header = allocate(sizeof(struct FS_disk_header));
-    if (!header) {
-        fprintf(stderr, "Failed to allocate memory for disk header\n");
-        return -1;
-    }
 
+    struct FS_disk_header* header = (struct FS_disk_header*)fs_state.disk;
     header->magic = HEADER_MAGIC;
-    FSFILE* root = fs_create_dir("");
+    FSFILE* root = fs_create_dir("root");
     if (!root) {
         fprintf(stderr, "Failed to create root directory\n");
         return -1;
     }
+
     fs_state.current_directory = root;
-    header->root_directory = (unsigned long)root - (unsigned long)fs_state.disk;
+    header->root_directory = get_absolute_address(root);
+
     return 0;
 }
 
@@ -289,7 +319,6 @@ FSFILE* fs_create_dir(const char* path) {
 
     FSFILE* file = allocate_file(path, T_DIR);
     if (file) {
-
         return file;
     }
     return NULL;
@@ -309,9 +338,11 @@ int fs_write(const void* data, int size, FSFILE* file) {
     if (!file || !is_initialized()) {
         return -1;
     }
-    if (MODE_WRITE != (file->mode & MODE_WRITE)) {
+
+    if (MODE_WRITE != (file->mode & MODE_WRITE) && file->type != T_DIR) {
         return -1;
     }
+
     int bytes_written = 0;
 
     if (file->first_block != 0) {
@@ -366,10 +397,28 @@ void fs_read(const FSFILE* file, FILE* output) {
     if (file->first_block == 0) {
         return;
     }
-    struct Data_block* first_block = (struct Data_block*)&fs_state.disk[file->first_block];
+    struct Data_block* first_block = (struct Data_block*)get_ptr(file->first_block);
 
     if (first_block) {
         read_file_contents(first_block, output);
+    }
+}
+
+void fs_list(FILE* output) {
+    if (!output || !is_initialized()) {
+        return;
+    }
+
+    FSFILE* file = fs_state.current_directory;
+
+    if (!file) {
+        return;
+    }
+
+    struct Data_block* first_block = (struct Data_block*)get_ptr(file->first_block);
+
+    if (first_block) {
+        read_dir_contents(first_block, output);
     }
 }
 
@@ -377,6 +426,7 @@ void fs_dump_disk(const char* path) {
     if (!is_initialized()) {
         return;
     }
+
     FILE* file = fopen(path, "w");
     if (file) {
         fwrite(fs_state.disk, sizeof(char), fs_state.disk_header.disk_size, file);

@@ -20,12 +20,14 @@ int main(int argc, char** argv) {
     }
     else {
         FSFILE* file = fs_open("test.txt", "w");
+
         if (file) {
-            const char* string = "This is a small file.\n";
-            fs_write(string, strlen(string), file);
-            fs_read(file, stdout);
+            const char* str = "This is a test\n";
+            fs_write(str, strlen(str), file);
             fs_close(file);
         }
+
+        fs_list(stdout);
     }
 
     fs_dump_disk("./data/test.disk");
