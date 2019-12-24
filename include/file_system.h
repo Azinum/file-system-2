@@ -13,6 +13,8 @@ FSFILE* fs_open(const char* path, const char* mode);
 
 FSFILE* fs_create_dir(const char* path);
 
+int fs_remove_file(const char* path);
+
 void fs_close(FSFILE* file);
 
 int fs_write(const void* data, int size, FSFILE* file);

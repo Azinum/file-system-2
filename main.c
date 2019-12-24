@@ -20,6 +20,7 @@ int main(int argc, char** argv) {
     }
     else {
         fs_create_dir("projects");
+
         {
             FSFILE* file = fs_open("debug.log", "w");
             const char* str = "This is a test\n";
@@ -27,13 +28,7 @@ int main(int argc, char** argv) {
             fs_close(file);
         }
 
-        {
-          FSFILE* file = fs_open("debug.log", "r");
-          if (file) {
-            fs_read(file, stdout);
-            fs_close(file);
-          }
-        }
+        fs_remove_file("debug.log");
 
         fs_list(stdout);
     }

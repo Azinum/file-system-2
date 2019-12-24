@@ -34,7 +34,7 @@ static void* allocate(int size);
 static FSFILE* allocate_file(const char* path, int file_type);
 static int deallocate_file(FSFILE* file);
 static void deallocate_blocks(struct Data_block* block);
-static FSFILE* find_file(unsigned long hashed_name);
+static FSFILE* find_file(unsigned long hashed_name, unsigned long* position);
 static struct Data_block* read_block(unsigned long block_addr);
 static void write_to_blocks(const void* data, int size, int* bytes_written, struct Data_block* block);
 static void read_file_contents(struct Data_block* block, FILE* output);
@@ -132,7 +132,7 @@ FSFILE* allocate_file(const char* path, int file_type) {
     unsigned long hashed_name = hash2(path);
 
     FSFILE* f;
-    if ((f = find_file(hashed_name))) {
+    if ((f = find_file(hashed_name, NULL))) {
         return NULL;
     }
 
@@ -155,7 +155,7 @@ FSFILE* allocate_file(const char* path, int file_type) {
 
 // return -1 on failure
 int deallocate_file(FSFILE* file) {
-    if (!is_initialized()) {
+    if (!is_initialized() || !file) {
         return -1;
     }
 
@@ -183,8 +183,8 @@ void deallocate_blocks(struct Data_block* block) {
         deallocate_blocks(next);
     }
 }
-
-FSFILE* find_file(unsigned long hashed_name) {
+ 
+FSFILE* find_file(unsigned long hashed_name, unsigned long* location) {
     if (!is_initialized()) {
         return NULL;
     }
@@ -204,8 +204,14 @@ FSFILE* find_file(unsigned long hashed_name) {
         FSFILE* file = NULL;
         for (unsigned long i = 0; i < block->bytes_used; i += (sizeof(unsigned long))) {
             unsigned long addr = *(unsigned long*)(&block->data[i]);
+            if (addr == 0) {
+                continue;
+            }
             file = (FSFILE*)get_ptr(addr);
             if (file->hashed_name == hashed_name) {
+                if (location != NULL) {
+                    *location = get_absolute_address(&block->data[i]);
+                }
                 return file;
             }
         }
@@ -407,7 +413,7 @@ FSFILE* fs_open(const char* path, const char* mode) {
     switch (*mode) {
         case 'w': {
 
-            if ((file = find_file(hashed))) {
+            if ((file = find_file(hashed, NULL))) {
                 deallocate_file(file);
                 return file;
             }
@@ -422,7 +428,7 @@ FSFILE* fs_open(const char* path, const char* mode) {
             break;
 
         case 'r': {
-            FSFILE* file = find_file(hashed);
+            FSFILE* file = find_file(hashed, NULL);
             if (file) {
                 file->mode = MODE_READ;
                 return file;
@@ -431,7 +437,7 @@ FSFILE* fs_open(const char* path, const char* mode) {
             break;
 
         case 'a': {
-            FSFILE* file = find_file(hashed);
+            FSFILE* file = find_file(hashed, NULL);
             if (file) {
                 file->mode = MODE_APPEND;
                 return file;
@@ -456,6 +462,24 @@ FSFILE* fs_create_dir(const char* path) {
         return file;
     }
     return NULL;
+}
+
+int fs_remove_file(const char* path) {
+    unsigned long hashed = hash2(path);
+    unsigned long location = 0;
+    FSFILE* file = find_file(hashed, &location);
+    if (!file) {
+        return -1;
+    }
+    if (deallocate_file(file) != 0) {
+        return -1;
+    }
+    file->block_type = BLOCK_FILE_HEADER_FREE;
+    unsigned long* loc = get_ptr(location);
+    if (loc) {
+        *loc = 0;
+    }
+    return 0;
 }
 
 void fs_close(FSFILE* file) {
