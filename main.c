@@ -19,12 +19,20 @@ int main(int argc, char** argv) {
         use_menu(argc, argv, stdout);
     }
     else {
-        FSFILE* file = fs_open("test.txt", "w");
-
-        if (file) {
+        fs_create_dir("projects");
+        {
+            FSFILE* file = fs_open("debug.log", "w");
             const char* str = "This is a test\n";
             fs_write(str, strlen(str), file);
             fs_close(file);
+        }
+
+        {
+          FSFILE* file = fs_open("debug.log", "r");
+          if (file) {
+            fs_read(file, stdout);
+            fs_close(file);
+          }
         }
 
         fs_list(stdout);

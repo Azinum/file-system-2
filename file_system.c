@@ -31,10 +31,11 @@ static struct Data_block* allocate_blocks(int size);
 static void flush(unsigned long from, unsigned long to);
 static void* allocate(int size);
 static FSFILE* allocate_file(const char* path, int file_type);
+static FSFILE* find_file(unsigned long hashed_name);
+static struct Data_block* read_block(unsigned long block_addr);
 static void write_to_blocks(const void* data, int size, int* bytes_written, struct Data_block* block);
 static void read_file_contents(struct Data_block* block, FILE* output);
 static void read_dir_contents(struct Data_block* block, FILE* output);
-
 
 // Get pointer from address/index on disk
 inline void* get_ptr(unsigned long address);
@@ -116,7 +117,6 @@ void flush(unsigned long from, unsigned long to) {
     for (unsigned long i = from; i < to; i++) {
         fs_state.disk[i] = 0;
     }
-
 }
 
 FSFILE* allocate_file(const char* path, int file_type) {
@@ -141,6 +141,45 @@ FSFILE* allocate_file(const char* path, int file_type) {
     }
 
     return file;
+}
+
+FSFILE* find_file(unsigned long hashed_name) {
+    if (!is_initialized()) {
+        return NULL;
+    }
+
+    FSFILE* dir = fs_state.current_directory;
+
+    struct Data_block* block = NULL;
+     
+    unsigned long next = dir->first_block;
+
+    while ((block = read_block(next)) != NULL) {
+        next = block->next;
+        FSFILE* file = NULL;
+        for (unsigned long i = 0; i < block->bytes_used; i += (sizeof(unsigned long))) {
+            unsigned long addr = *(unsigned long*)(&block->data[i]);
+            file = (FSFILE*)get_ptr(addr);
+            if (file->hashed_name == hashed_name) {
+                return file;
+            }
+        }
+
+        if (block->next == 0) {
+            break;
+        }
+        read_block(next);
+    }
+
+    return NULL;
+}
+
+struct Data_block* read_block(unsigned long block_addr) {
+    struct Data_block* block = (struct Data_block*)get_ptr(block_addr);
+    if (!block) {
+        return NULL;
+    }
+    return block;
 }
 
 // Different cases:
@@ -213,7 +252,11 @@ void read_dir_contents(struct Data_block* block, FILE* output) {
         unsigned long addr = *(unsigned long*)(&block->data[i]);
         FSFILE* file = (FSFILE*)get_ptr(addr);
         if (file) {
-            fprintf(output, "%s\n", file->name);
+            fprintf(output, "%s", file->name);
+            if (file->type == T_DIR) {
+                fprintf(output, "/");
+            }
+            fprintf(output, "\n");
         }
     }
 
@@ -290,14 +333,22 @@ FSFILE* fs_open(const char* path, const char* mode) {
             break;
 
         case 'r': {
-
-
+            unsigned long hashed = hash2(path);
+            FSFILE* file = find_file(hashed);
+            if (file) {
+                file->mode = MODE_READ;
+                return file;
+            }
         }
             break;
 
         case 'a': {
-
-
+            unsigned long hashed = hash2(path);
+            FSFILE* file = find_file(hashed);
+            if (file) {
+                file->mode = MODE_APPEND;
+                return file;
+            }
         }
             break;
 
