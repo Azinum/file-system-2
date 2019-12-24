@@ -47,9 +47,11 @@ int main(int argc, char** argv) {
 void print_help(FILE* out) {
     fprintf(out,
         "COMMANDS:\n"
-        " a <file>      # Add new file\n"
-        " d <file>      # Add new directory\n"
+        " c <file>      # Create new file\n"
+        " d <file>      # Create new directory\n"
         " w <file> \"contents\" # Open and write to file\n"
+        " a <file> \"contents\" # Open and write (append) to file\n"
+        " l             # List files\n"
         " h             # Print this list\n"
     );
 }
@@ -59,8 +61,11 @@ void use_menu(int argc, char** argv, FILE* output) {
         return;
     }
 
+    const char* disk_path = "data/test.disk";
+    fs_init_from_disk(disk_path);
+
     switch (*argv[1]) {
-        case 'a': {
+        case 'c': {
             if (argc >= 2) {
                 FSFILE* file = fs_open(argv[2], "w");
                 if (file) {
@@ -86,11 +91,28 @@ void use_menu(int argc, char** argv, FILE* output) {
             if (argc >= 3) {
                 FSFILE* file = fs_open(argv[2], "w");
                 if (file) {
-                    int size = strlen(argv[3]);
+                    unsigned long size = strlen(argv[3]);
                     fs_write(argv[3], size, file);
                     fs_close(file);
                 }
             }
+        }
+            break;
+
+        case 'a': {
+            if (argc >= 3) {
+                FSFILE* file = fs_open(argv[2], "a");
+                if (file) {
+                    unsigned long size = strlen(argv[3]);
+                    fs_write(argv[3], size, file);
+                    fs_close(file);
+                }
+            }
+        }
+            break;
+
+        case 'l': {
+            fs_list(output);
         }
             break;
 

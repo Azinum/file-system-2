@@ -8,6 +8,7 @@
 #include "file_system.h"
 #include "file.h"
 #include "hash.h"
+#include "read.h"
 
 #define HEADER_MAGIC 0xbeefaaaa
 
@@ -31,6 +32,8 @@ static struct Data_block* allocate_blocks(int size);
 static void flush(unsigned long from, unsigned long to);
 static void* allocate(int size);
 static FSFILE* allocate_file(const char* path, int file_type);
+static int deallocate_file(FSFILE* file);
+static void deallocate_blocks(struct Data_block* block);
 static FSFILE* find_file(unsigned long hashed_name);
 static struct Data_block* read_block(unsigned long block_addr);
 static void write_to_blocks(const void* data, int size, int* bytes_written, struct Data_block* block);
@@ -126,6 +129,13 @@ FSFILE* allocate_file(const char* path, int file_type) {
 
     FSFILE* dir = fs_state.current_directory;
 
+    unsigned long hashed_name = hash2(path);
+
+    FSFILE* f;
+    if ((f = find_file(hashed_name))) {
+        return NULL;
+    }
+
     FSFILE* file = allocate(TOTAL_FILE_HEADER_SIZE);
 
     if (file) {
@@ -143,6 +153,37 @@ FSFILE* allocate_file(const char* path, int file_type) {
     return file;
 }
 
+// return -1 on failure
+int deallocate_file(FSFILE* file) {
+    if (!is_initialized()) {
+        return -1;
+    }
+
+    if (file->first_block == 0) {
+        return 0;
+    }
+
+    struct Data_block* block = (struct Data_block*)get_ptr(file->first_block);
+    if (block) {
+        file->first_block = 0;
+        deallocate_blocks(block);
+        return 0;
+    }
+    return -1;
+}
+
+// Mark blocks as free
+void deallocate_blocks(struct Data_block* block) {
+    if (!block) {
+        return;
+    }
+    block->block_type = BLOCK_FREE;
+    if (block->next != 0) {
+        struct Data_block* next = (struct Data_block*)get_ptr(block->next);
+        deallocate_blocks(next);
+    }
+}
+
 FSFILE* find_file(unsigned long hashed_name) {
     if (!is_initialized()) {
         return NULL;
@@ -150,8 +191,12 @@ FSFILE* find_file(unsigned long hashed_name) {
 
     FSFILE* dir = fs_state.current_directory;
 
+    if (!dir) {
+        return NULL;
+    }
+
     struct Data_block* block = NULL;
-     
+
     unsigned long next = dir->first_block;
 
     while ((block = read_block(next)) != NULL) {
@@ -291,7 +336,13 @@ int fs_init(unsigned long disk_size) {
         return -1;
     }
     fs_state.is_initialized = 1;
-    fs_state.disk_header.disk_size = sizeof(char) * disk_size;
+
+    fs_state.disk_header = (struct FS_disk_header) {
+        .magic = HEADER_MAGIC,
+        .disk_size = sizeof(char) * disk_size,
+        .root_directory = 0
+    };
+
     fs_state.disk = calloc(fs_state.disk_header.disk_size, sizeof(char));
     fs_state.current_directory = NULL;
     if (!fs_state.disk) {
@@ -300,7 +351,7 @@ int fs_init(unsigned long disk_size) {
     }
 
     struct FS_disk_header* header = (struct FS_disk_header*)fs_state.disk;
-    header->magic = HEADER_MAGIC;
+    *header = fs_state.disk_header;
     FSFILE* root = fs_create_dir("root");
     if (!root) {
         fprintf(stderr, "Failed to create root directory\n");
@@ -313,6 +364,36 @@ int fs_init(unsigned long disk_size) {
     return 0;
 }
 
+int fs_init_from_disk(const char* path) {
+    if (is_initialized()) {
+        fs_free();
+    }
+
+    char* disk = read_file(path);
+    unsigned long disk_size = strlen(disk);
+
+    if (!disk) {
+        fprintf(stderr, "Failed to allocate memory for disk\n");
+        return -1;
+    }
+    fs_state.disk = disk;
+    struct FS_disk_header* header = (struct FS_disk_header*)fs_state.disk;
+    if (header->magic != HEADER_MAGIC) {
+        fprintf(stderr, "Failed to load disk. Invalid header magic (is: %i, should be: %i).\n", header->magic, HEADER_MAGIC);
+        return -1;
+    }
+    if (header->disk_size != disk_size) {
+        fprintf(stderr, "Failed to load disk. Invalid disk size. (loaded: %lu, should be: %lu)\n", disk_size, header->disk_size);
+        return -1;
+    }
+    fs_state.current_directory = NULL;
+    if (header->root_directory != 0) {
+        fs_state.current_directory = (FSFILE*)get_ptr(header->root_directory);
+    }
+    fs_state.is_initialized = 1;
+    return 0;
+}
+
 FSFILE* fs_open(const char* path, const char* mode) {
     if (!is_initialized()) {
         return NULL;
@@ -321,19 +402,26 @@ FSFILE* fs_open(const char* path, const char* mode) {
         return NULL;
     }
     FSFILE* file;
+    unsigned long hashed = hash2(path);
 
     switch (*mode) {
         case 'w': {
-            file = allocate_file(path, T_FILE);
-            if (file) {
-                file->mode = MODE_WRITE;
+
+            if ((file = find_file(hashed))) {
+                deallocate_file(file);
                 return file;
+            }
+            else {
+                file = allocate_file(path, T_FILE);
+                if (file) {
+                    file->mode = MODE_WRITE;
+                    return file;
+                }
             }
         }
             break;
 
         case 'r': {
-            unsigned long hashed = hash2(path);
             FSFILE* file = find_file(hashed);
             if (file) {
                 file->mode = MODE_READ;
@@ -343,7 +431,6 @@ FSFILE* fs_open(const char* path, const char* mode) {
             break;
 
         case 'a': {
-            unsigned long hashed = hash2(path);
             FSFILE* file = find_file(hashed);
             if (file) {
                 file->mode = MODE_APPEND;
@@ -483,6 +570,7 @@ void fs_free() {
     if (fs_state.is_initialized) {
         if (fs_state.disk) {
             free(fs_state.disk);
+            fs_state.disk = NULL;
         }
     }
 }
