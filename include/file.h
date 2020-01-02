@@ -26,18 +26,20 @@ enum File_mode {
 };
 
 struct Data_block {
-    char block_type;    // BLOCK_USED, BLOCK_FREE
+    int block_type;    // BLOCK_USED, BLOCK_FREE
     char data[BLOCK_SIZE];
     int bytes_used;     // Number of bytes written in this block
     unsigned long next;
 };
 
 struct FSFILE {
-    char block_type;    // BLOCK_FILE_HEADER, BLOCK_FILE_HEADER_FREE
+    int block_type;    // BLOCK_FILE_HEADER, BLOCK_FILE_HEADER_FREE
     char name[FILE_NAME_SIZE];
     unsigned long hashed_name;
-    char type;
-    int mode;
+    int size;   // Size in bytes
+    // int links_count;
+    int type;   // T_FILE, T_DIR
+    int mode;   // MODE_NONE, MODE_READ, MODE_WRITE, MODE_APPEND
     unsigned long first_block;
 };
 

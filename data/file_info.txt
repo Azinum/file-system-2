@@ -1,5 +1,0 @@
-name: test/
-type: 2
-size: 0 bytes
-mode: 0
-first block: 0x0
