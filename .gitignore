@@ -1,4 +1,3 @@
 .DS_Store
 file_system
-file_system_debug
-file_system_debug.dSYM
+file_system.dSYM
