@@ -184,6 +184,7 @@ int deallocate_file(FSFILE* file) {
 }
 
 // Mark blocks as free
+// This function might be the source of the @BUG
 void deallocate_blocks(struct Data_block* block) {
     if (!block) {
         return;
@@ -289,8 +290,6 @@ void write_to_blocks(FSFILE* file, const void* data, unsigned long size, unsigne
         bytes_to_write = bytes_avaliable;
     }
 
-    printf("size: %lu, bytes avaliable: %lu, bytes used: %i\n\tblock pos: %lu, bytes to write: %lu\n\n", size, bytes_avaliable, block->bytes_used, get_absolute_address(block), bytes_to_write);
-
     // If this block is already filled, go to next one
     if ((bytes_avaliable == 0) && block->next != 0) {
         struct Data_block* next = (struct Data_block*)get_ptr(block->next);
@@ -299,6 +298,8 @@ void write_to_blocks(FSFILE* file, const void* data, unsigned long size, unsigne
         }
         return;
     }
+
+    printf("writing %lu bytes to file '%s'\n", bytes_to_write, file->name);
 
     memcpy(block->data + block->bytes_used, data, bytes_to_write);
     *bytes_written += bytes_to_write;
@@ -609,14 +610,12 @@ int fs_write(const void* data, unsigned long size, FSFILE* file) {
             struct Data_block* last = get_last_block(first);
             if (last) {
                 if ((BLOCK_SIZE - last->bytes_used) >= size) {
-                    printf("%i: writing %lu bytes to file '%s'\n", __LINE__, size, file->name);
                     write_to_blocks(file, data, size, &bytes_written, last);
                 }
                 else {
                     int block_count = (size + last->bytes_used) / BLOCK_SIZE + 1;
                     struct Data_block* block = allocate_blocks(block_count);
                     if (block) {
-                        printf("%i: writing %lu bytes to file '%s'\n", __LINE__, size, file->name);
                         unsigned long bytes_written = 0;
                         write_to_blocks(file, data, size, &bytes_written, block);
                         last->next = get_absolute_address(block);
@@ -629,7 +628,6 @@ int fs_write(const void* data, unsigned long size, FSFILE* file) {
         int block_count = size / BLOCK_SIZE + 1;
         struct Data_block* block = allocate_blocks(block_count);
         if (block) {
-            printf("%i: writing %lu bytes to file '%s'\n", __LINE__, size, file->name);
             unsigned long bytes_written = 0;
             write_to_blocks(file, data, size, &bytes_written, block);
             file->first_block = get_absolute_address(block);
