@@ -14,6 +14,18 @@
 
 #define HEADER_MAGIC 0xbeefaaaa
 
+#define COLORING 1
+
+#if COLORING
+#define RED "\e[1;31m"
+#define BLUE "\e[1;34m"
+#define NONE "\e[0m"
+#else
+#define RED ""
+#define BLUE ""
+#endif
+
+
 struct FS_disk_header {
     int magic;
     unsigned long disk_size;
@@ -357,11 +369,17 @@ void read_dir_contents(FSFILE* file, unsigned long block_addr, FILE* output) {
         FSFILE* file_in_dir = get_ptr(addr);
         if (file_in_dir) {
             fprintf(output, "%i %7i ", file_in_dir->type, file_in_dir->size);
-            fprintf(output, "%s", file_in_dir->name);
             if (file_in_dir->type == T_DIR) {
-                fprintf(output, "/");
+                fprintf(output, BLUE "%s/", file_in_dir->name);
             }
-            fprintf(output, "\n");
+            else if (file_in_dir->type == T_FILE) {
+                fprintf(output, RED "%s", file_in_dir->name);
+            }
+            else {
+                fprintf(output, "%s", file_in_dir->name);
+            }
+
+            fprintf(output, "\n" NONE);
         }
     }
 
