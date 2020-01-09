@@ -11,6 +11,9 @@ FLAGS_RELEASE=-O2
 all: build_release clear run
 
 build_release:
+	@if [ ! -d "./log/" ]; then \
+		mkdir log; \
+	fi
 	$(CC) $(FLAGS) $(FLAGS_RELEASE)
 
 run:
