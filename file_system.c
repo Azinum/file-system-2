@@ -182,7 +182,7 @@ int deallocate_file(FSFILE* file) {
         return -1;
     }
 
-    if (file->first_block == 0) {
+    if (!can_access_address(file->first_block)) {
         return 0;
     }
 
@@ -190,7 +190,7 @@ int deallocate_file(FSFILE* file) {
     if (block) {
         file->first_block = 0;
         file->size = 0;
-        deallocate_blocks(block);
+        //deallocate_blocks(block);
         return 0;
     }
     return -1;
@@ -366,6 +366,7 @@ void read_dir_contents(FSFILE* file, unsigned long block_addr, FILE* output) {
         
         FSFILE* file_in_dir = get_ptr(addr);
         if (file_in_dir) {
+            fprintf(output, "%-7lu %i %7i ", addr, file_in_dir->type, file_in_dir->size);
             if (file_in_dir->type == T_DIR) {
                 fprintf(output, BLUE "%s/", file_in_dir->name);
             }

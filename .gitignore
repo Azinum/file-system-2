@@ -1,3 +1,4 @@
 .DS_Store
 file_system
-file_system.dSYM
+file_system.dSYM/
+test/*.disk
