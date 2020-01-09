@@ -6,7 +6,7 @@ FLAGS=-o file_system *.c -std=c99 -Iinclude -Wall
 
 FLAGS_DEBUG=-g
 
-FLAGS_RELEASE=-Os # -Werror
+FLAGS_RELEASE=-O2
 
 all: build_release clear run
 
@@ -19,8 +19,11 @@ run:
 clear:
 	clear
 
-debug: clear build_debug
+debug: build_debug
 	lldb ./file_system
+
+debug_linux: build_debug
+	gdb ./file_system
 
 build_debug:
 	$(CC) $(FLAGS) $(FLAGS_DEBUG)

@@ -6,3 +6,4 @@ x Read files
 x Write/append data to files
 - Delete files (@BUG - this corrupts other files)
     - deallocate_blocks()
+- Write to existing file (that have been written on)
