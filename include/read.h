@@ -5,4 +5,6 @@
 
 char* read_file(const char* path);
 
+char* read_open_file(FILE* file);
+
 #endif

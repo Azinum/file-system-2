@@ -41,14 +41,17 @@ void use_menu(int argc, char** argv, FILE* output) {
     }
 
     const char* disk_path = "./data/test.disk";
-    fs_init_from_disk(disk_path);
+    if (fs_init_from_disk(disk_path)) {
+        fs_get_error();
+        return;
+    }
 
     switch (*argv[1]) {
         case 'c': {
             if (argc > 2) {
                 FSFILE* file = fs_open(argv[2], "w");
                 if (!file) {
-                    printf("'%s': Failed to create file\n", argv[2]);
+                    fs_get_error();
                     break;
                 }
                 fs_close(file);
@@ -60,7 +63,7 @@ void use_menu(int argc, char** argv, FILE* output) {
             if (argc > 2) {
                 FSFILE* file = fs_open(argv[2], "r");
                 if (!file) {
-                    printf("'%s': Failed to read file\n", argv[2]);
+                    fs_get_error();
                     break;
                 }
                 fs_read(file, output);
@@ -73,7 +76,7 @@ void use_menu(int argc, char** argv, FILE* output) {
             if (argc > 2) {
                 FSFILE* file = fs_create_dir(argv[2]);
                 if (!file) {
-                    printf("'%s': Failed to create directory\n", argv[2]);
+                    fs_get_error();
                     break;
                 }
                 fs_close(file);
@@ -85,7 +88,7 @@ void use_menu(int argc, char** argv, FILE* output) {
             if (argc > 3) {
                 FSFILE* file = fs_open(argv[2], "w");
                 if (!file) {
-                    printf("'%s': Failed to write to file\n", argv[2]);
+                    fs_get_error();
                     break;
                 }
                 unsigned long size = strlen(argv[3]);
@@ -99,7 +102,7 @@ void use_menu(int argc, char** argv, FILE* output) {
             if (argc > 3) {
                 FSFILE* file = fs_open(argv[2], "a");
                 if (!file) {
-                    printf("'%s': Failed to append data to file\n", argv[2]);
+                    fs_get_error();
                     break;
                 }
                 unsigned long size = strlen(argv[3]);
@@ -112,7 +115,7 @@ void use_menu(int argc, char** argv, FILE* output) {
         case 'x': {
             if (argc > 2) {
                 if (fs_remove_file(argv[2]) != 0) {
-                    printf("'%s': Failed to remove file\n", argv[2]);
+                    fs_get_error();
                 }
             }
         }
@@ -122,7 +125,7 @@ void use_menu(int argc, char** argv, FILE* output) {
             if (argc > 2) {
                 FSFILE* file = fs_open(argv[2], "r");
                 if (!file) {
-                    printf("'%s': No such file or directory\n", argv[2]);
+                    fs_get_error();
                     break;
                 }
                 fs_print_file_info(file, output);

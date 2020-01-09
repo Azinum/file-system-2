@@ -1,4 +1,5 @@
 // file_system.c
+// tab size: 4
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,6 +7,8 @@
 #include <math.h>
 #include <assert.h>
 #include <limits.h>
+#include <stdarg.h>
+#include <time.h>
 
 #include "file_system.h"
 #include "file.h"
@@ -20,9 +23,11 @@
 #define RED "\e[1;31m"
 #define BLUE "\e[1;34m"
 #define NONE "\e[0m"
+#define DARK_GREEN "\e[0;32m"
 #else
 #define RED ""
 #define BLUE ""
+#define DARK_GREEN ""
 #endif
 
 
@@ -35,6 +40,8 @@ struct FS_disk_header {
 struct FS_state {
     char* disk;
     int is_initialized;
+    FILE* err;
+    FILE* log;
     struct FS_disk_header* disk_header;
     FSFILE* current_directory;
 };
@@ -42,6 +49,9 @@ struct FS_state {
 static struct FS_state fs_state;
 
 static int is_initialized();
+static void error(char* format, ...);
+static void fslog(char* format, ...);
+
 static struct Data_block* allocate_blocks(int count);
 static void flush(unsigned long from, unsigned long to);
 static void* allocate(unsigned long size);
@@ -65,6 +75,44 @@ inline int can_access_address(unsigned long address);
 
 int is_initialized() {
     return fs_state.is_initialized;
+}
+
+void error(char* format, ...) {
+    if (!is_initialized())
+        return;
+
+    va_list args;
+    va_start(args, format);
+
+    if (fs_state.err) {
+        vfprintf(fs_state.err, format, args);
+    }
+    else {
+        vfprintf(stderr, format, args);
+    }
+    
+    va_end(args);
+}
+
+void fslog(char* format, ...) {
+    if (!is_initialized())
+        return;
+    
+    time_t current_time = time(NULL);
+    char* time_str = ctime(&current_time);
+    time_str[strlen(time_str) - 1] = '\0';
+    va_list args;
+    va_start(args, format);
+
+    if (fs_state.log) {
+        fprintf(fs_state.log, "(%s) ", time_str);
+        vfprintf(fs_state.log, format, args);
+    }
+    else {
+        vfprintf(stdout, format, args);
+    }
+    
+    va_end(args);
 }
 
 static void* allocate(unsigned long size) {
@@ -92,14 +140,12 @@ static void* allocate(unsigned long size) {
             case BLOCK_FREE: {
                 free_space += TOTAL_BLOCK_SIZE;
                 i += TOTAL_BLOCK_SIZE;
-                // flush(i, i + TOTAL_BLOCK_SIZE);
             }
                 break;
 
             case BLOCK_FILE_HEADER_FREE: {
                 free_space += TOTAL_FILE_HEADER_SIZE;
                 i += TOTAL_FILE_HEADER_SIZE;
-                // flush(i, i + TOTAL_FILE_HEADER_SIZE);
             }
                 break;
 
@@ -118,17 +164,18 @@ struct Data_block* allocate_blocks(int count) {
     }
 
     struct Data_block* block = allocate(TOTAL_BLOCK_SIZE);
+    if (!block) {
+        return NULL;
+    }
 
-    if (block != NULL) {
-        block->block_type = BLOCK_USED;
-        block->bytes_used = 0;
-        struct Data_block* next = allocate_blocks(count - 1);
-        if (next != NULL) {
-            block->next = get_absolute_address(next);
-        }
-        else {
-            block->next = 0;
-        }
+    block->block_type = BLOCK_USED;
+    block->bytes_used = 0;
+    struct Data_block* next = allocate_blocks(count - 1);
+    if (next != NULL) {
+        block->next = get_absolute_address(next);
+    }
+    else {
+        block->next = 0;
     }
 
     return block;
@@ -310,7 +357,7 @@ void write_to_blocks(FSFILE* file, const void* data, unsigned long size, unsigne
         return;
     }
 
-    printf("writing %lu bytes to file '%s'\n", bytes_to_write, file->name);
+    fslog("Writing %lu bytes to file '%s'\n", bytes_to_write, file->name);
 
     memcpy(block->data + block->bytes_used, data, bytes_to_write);
     *bytes_written += bytes_to_write;
@@ -471,10 +518,13 @@ int fs_init(unsigned long disk_size) {
         return -1;
     }
     fs_state.is_initialized = 1;
+    fs_state.err = NULL;
+    fs_state.log = fopen("log/disk_events.log", "ab");
+
     fs_state.disk = calloc(disk_size, sizeof(char));
     fs_state.current_directory = NULL;
     if (!fs_state.disk) {
-        fprintf(stderr, "%s: Failed to allocate memory for disk\n", __FUNCTION__);
+        error("%s: Failed to allocate memory for disk\n", __FUNCTION__);
         return -1;
     }
 
@@ -483,7 +533,7 @@ int fs_init(unsigned long disk_size) {
     fs_state.disk_header->disk_size = sizeof(char) * disk_size;
     FSFILE* root = fs_create_dir("root");
     if (!root) {
-        fprintf(stderr, "Failed to create root directory\n");
+        error("Failed to create root directory\n");
         return -1;
     }
 
@@ -499,14 +549,17 @@ int fs_init_from_disk(const char* path) {
 
     char* disk = read_file(path);
     if (!disk) {
-        fprintf(stderr, "Failed to allocate memory for disk\n");
+        error("Failed to allocate memory for disk\n");
         return -1;
     }
     fs_state.is_initialized = 1;
+    fs_state.err = fopen("log/error.log", "w+");
+    fs_state.log = fopen("log/disk_events.log", "ab");
+
     fs_state.disk = disk;
     fs_state.disk_header = (struct FS_disk_header*)fs_state.disk;
     if (fs_state.disk_header->magic != HEADER_MAGIC) {
-        fprintf(stderr, "Failed to load disk. Invalid header magic (is: %i, should be: %i).\n", fs_state.disk_header->magic, HEADER_MAGIC);
+        error("Failed to load disk. Invalid header magic (is: " BLUE "%i" NONE ", should be: " BLUE "%i" NONE ").\n", fs_state.disk_header->magic, HEADER_MAGIC);
         return -1;
     }
     fs_state.current_directory = NULL;
@@ -542,32 +595,39 @@ FSFILE* fs_open(const char* path, const char* mode) {
                     file->mode = MODE_WRITE;
                     return file;
                 }
+                error(DARK_GREEN "'%s'" NONE ": Failed to create file\n", path);
+                return NULL;
             }
         }
             break;
 
         case 'r': {
             FSFILE* file = find_file(hashed, NULL);
-            if (file) {
-                file->mode = MODE_READ;
-                return file;
+            if (!file) {
+                error(DARK_GREEN "'%s'" NONE ": No such file\n", path);
+                return NULL;
             }
+            file->mode = MODE_READ;
+            return file;
+        
         }
             break;
 
         case 'a': {
             FSFILE* file = find_file(hashed, NULL);
-            if (file) {
-                file->mode = MODE_APPEND;
-                return file;
+            if (!file) {
+                error(DARK_GREEN "'%s'" NONE ": No such file\n", path);
+                return NULL;
             }
+            file->mode = MODE_APPEND;
+            return file;
         }
             break;
 
         default:
             break;
     }
-
+    error("Open file failed\n");
     return NULL;
 }
 
@@ -582,6 +642,7 @@ FSFILE* fs_create_dir(const char* path) {
         fs_write(&addr, sizeof(unsigned long), file);
         return file;
     }
+    error(DARK_GREEN "'%s'" NONE ": Failed to create directory\n", path);
     return NULL;
 }
 
@@ -590,6 +651,7 @@ int fs_remove_file(const char* path) {
     unsigned long location = 0;
     FSFILE* file = find_file(hashed, &location);
     if (!file) {
+        error(DARK_GREEN "'%s'" NONE " No such file or directory\n", path);
         return -1;
     }
     if (location == 0) {
@@ -603,7 +665,7 @@ int fs_remove_file(const char* path) {
     }
     file->first_block = 0;
     unsigned long* loc = get_ptr(location);
-    printf("Remove file '%s' (loc: %lu)\n", path, *loc);
+    fslog("Removed file '%s' (loc: %lu)\n", path, *loc);
     assert(get_absolute_address(file) == *loc);
 
     if (loc) {
@@ -725,12 +787,29 @@ void fs_dump_disk(const char* path) {
     }
 }
 
+void fs_get_error() {
+    if (!is_initialized()) {
+        printf("%s\n", "File system is not initialized");
+        return;
+    }
+    if (!fs_state.err) {
+        return;
+    }
+    char* contents = read_open_file(fs_state.err);
+    if (contents) {
+        printf("%s", contents);
+        free(contents);
+    }
+}
+
 void fs_free() {
     if (fs_state.is_initialized) {
         if (fs_state.disk) {
             free(fs_state.disk);
             fs_state.disk = NULL;
         }
+        if (fs_state.err) fclose(fs_state.err);
+        if (fs_state.log) fclose(fs_state.log);
         fs_state.current_directory = NULL;
         fs_state.disk_header = NULL;
         fs_state.is_initialized = 0;

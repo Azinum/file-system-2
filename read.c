@@ -6,14 +6,21 @@
 #include "read.h"
 
 char* read_file(const char* path) {
-    char* buffer = NULL;
-    long buffer_size, read_size;
     FILE* file = fopen(path, "rb");
-
     if (file == NULL) {
         fclose(file);
         return NULL;
     }
+    
+    return read_open_file(file);
+}
+
+char* read_open_file(FILE* file) {
+    if (!file) {
+        return NULL;
+    }
+    long buffer_size, read_size;
+    char* buffer = NULL;
 
     fseek(file, 0, SEEK_END);
 

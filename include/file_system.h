@@ -27,6 +27,8 @@ void fs_list(FILE* output);
 
 void fs_dump_disk(const char* path);
 
+void fs_get_error();
+
 void fs_free();
 
 void fs_test();
