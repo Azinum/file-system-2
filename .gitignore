@@ -2,3 +2,5 @@
 file_system
 file_system.dSYM/
 test/*.disk
+log/
+
