@@ -26,14 +26,14 @@ enum File_mode {
 };
 
 struct Data_block {
-    int block_type;    // BLOCK_USED, BLOCK_FREE
+    char block_type;    // BLOCK_USED, BLOCK_FREE
     char data[BLOCK_SIZE];
     int bytes_used;     // Number of bytes written in this block
     unsigned long next;
 };
 
 struct FSFILE {
-    int block_type;    // BLOCK_FILE_HEADER, BLOCK_FILE_HEADER_FREE
+    char block_type;    // BLOCK_FILE_HEADER, BLOCK_FILE_HEADER_FREE
     char name[FILE_NAME_SIZE];
     unsigned long hashed_name;
     int size;   // Size in bytes

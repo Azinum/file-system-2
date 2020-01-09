@@ -131,9 +131,8 @@ void use_menu(int argc, char** argv, FILE* output) {
         }
             break;
 
-        case 'l': {
+        case 'l':
             fs_list(output);
-        }
             break;
 
         case 'h':
