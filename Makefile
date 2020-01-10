@@ -13,6 +13,7 @@ FLAGS_RELEASE=-O2
 INSTALL_TOP=/usr/local
 INSTALL_BIN=$(INSTALL_TOP)/bin
 INSTALL_SHARE=$(INSTALL_TOP)/share
+DATA_PATH=$(INSTALL_SHARE)/$(PROGRAM_NAME)
 
 all: build_local generate_sample_disk
 
@@ -22,8 +23,8 @@ install: build_release
 	cp -a ./$(PROGRAM_NAME) $(INSTALL_BIN)/$(PROGRAM_NAME)
 
 	mkdir -p $(INSTALL_SHARE)/$(PROGRAM_NAME)
-	mkdir -p $(INSTALL_SHARE)/$(PROGRAM_NAME)/log
-	mkdir -p $(INSTALL_SHARE)/$(PROGRAM_NAME)/data
+	rsync --exclude="*" -da ./log/ $(DATA_PATH)/log/	# Copy only the directory, and keep the properties
+	rsync --exclude="*" -da ./data/ $(DATA_PATH)/data/
 	chmod o+x $(INSTALL_SHARE)/$(PROGRAM_NAME)/
 
 build_release:

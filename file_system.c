@@ -577,8 +577,8 @@ int fs_init_from_disk(const char* path) {
     fs_state.is_initialized = 1;
     fs_state.error = 0;
     fs_state.err = NULL; //fopen("./log/error.log", "w+");
-    fs_state.log = NULL; //fopen("./log/disk_events.log", "ab");
-
+    fs_state.log = fopen(DATA_PATH "/log/disk_events.log", "ab");
+    
     fs_state.disk = disk;
     fs_state.disk_header = (struct FS_disk_header*)fs_state.disk;
     if (fs_state.disk_header->magic != HEADER_MAGIC) {
