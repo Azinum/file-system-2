@@ -4,7 +4,7 @@ CC=gcc
 
 PROGRAM_NAME=fs2
 
-FLAGS=-o $(PROGRAM_NAME) *.c -std=c99 -Iinclude -Wall
+FLAGS=-o $(PROGRAM_NAME) *.c -std=c99 -largp -Iinclude -Wall
 
 FLAGS_DEBUG=-g
 
@@ -18,7 +18,9 @@ DATA_PATH=$(INSTALL_SHARE)/$(PROGRAM_NAME)
 all: build_local generate_sample_disk
 
 install: build_release
-	cp -a ./scripts/$(PROGRAM_NAME).bash /etc/bash_completion.d/$(PROGRAM_NAME).bash
+	@if [[ -d /etc/bash_completion.d/ ]]; then \
+		cp -a ./scripts/$(PROGRAM_NAME).bash /etc/bash_completion.d/$(PROGRAM_NAME).bash; \
+	fi
 	chmod o+x $(PROGRAM_NAME)
 	cp -a ./$(PROGRAM_NAME) $(INSTALL_BIN)/$(PROGRAM_NAME)
 
@@ -36,7 +38,7 @@ build_local:
 	$(CC) $(FLAGS) $(FLAGS_RELEASE) -D LOCAL_BUILD=1
 
 copy_local:
-	cp -ar ./data/ $(INSTALL_SHARE)/$(PROGRAM_NAME)/
+	cp -aR ./data/ $(INSTALL_SHARE)/$(PROGRAM_NAME)/data/
 
 generate_sample_disk:
 	./scripts/generate_sample_disk.bash
