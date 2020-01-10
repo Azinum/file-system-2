@@ -27,7 +27,6 @@ static struct argp_option options[] = {
 };
 
 struct Arguments {
-    char* args[2];
     int silent, verbose;
     FILE* output_file;
 };
@@ -38,7 +37,6 @@ void print_options();
 int main(int argc, char** argv) {
     struct argp argp = {options, parse_option, args_doc, doc};
     struct Arguments arguments = {
-        .args = {"", ""},
         .silent = 0,
         .verbose = 1,
         .output_file = stdout
