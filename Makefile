@@ -14,20 +14,28 @@ INSTALL_TOP=/usr/local
 INSTALL_BIN=$(INSTALL_TOP)/bin
 INSTALL_SHARE=$(INSTALL_TOP)/share
 
-all: build_release generate_sample_disk
+all: build_local generate_sample_disk
 
-install: build_release generate_sample_disk
+install: build_release
 	cp -a ./scripts/$(PROGRAM_NAME).bash /etc/bash_completion.d/$(PROGRAM_NAME).bash
 	chmod o+x $(PROGRAM_NAME)
+	cp -a ./$(PROGRAM_NAME) $(INSTALL_BIN)/$(PROGRAM_NAME)
+
 	mkdir -p $(INSTALL_SHARE)/$(PROGRAM_NAME)
 	mkdir -p $(INSTALL_SHARE)/$(PROGRAM_NAME)/log
-	cp -ar ./data/ $(INSTALL_SHARE)/$(PROGRAM_NAME)/
-	cp -a ./$(PROGRAM_NAME) $(INSTALL_BIN)/$(PROGRAM_NAME)
+	mkdir -p $(INSTALL_SHARE)/$(PROGRAM_NAME)/data
 	chmod o+x $(INSTALL_SHARE)/$(PROGRAM_NAME)/
 
 build_release:
 	mkdir -p log
 	$(CC) $(FLAGS) $(FLAGS_RELEASE)
+
+build_local:
+	mkdir -p log
+	$(CC) $(FLAGS) $(FLAGS_RELEASE) -D LOCAL_BUILD=1
+
+copy_local:
+	cp -ar ./data/ $(INSTALL_SHARE)/$(PROGRAM_NAME)/
 
 generate_sample_disk:
 	./scripts/generate_sample_disk.bash

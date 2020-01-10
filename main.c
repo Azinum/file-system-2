@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
         .output_file = stdout
     };
 
-    char* disk_path = SHARE_PATH "/fs2/data/test.disk";
+    char* disk_path = DATA_PATH "/data/test.disk";
 
     if (argc > 1) {
         fs_init_from_disk(disk_path);

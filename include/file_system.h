@@ -3,9 +3,9 @@
 #ifndef _FILE_SYSTEM_H
 #define _FILE_SYSTEM_H
 
+#include "config.h"
+
 #define ARRAY_SIZE(arr) ((sizeof(arr)) / (sizeof(arr[0])))
-#define TOP_PATH "/usr/local"
-#define SHARE_PATH TOP_PATH "/share"
 
 typedef struct FSFILE FSFILE;
 
