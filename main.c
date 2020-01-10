@@ -32,7 +32,6 @@ struct Arguments {
 };
 
 static error_t parse_option(int key, char *arg, struct argp_state *state);
-void print_options();
 
 int main(int argc, char** argv) {
     struct argp argp = {options, parse_option, args_doc, doc};
@@ -139,7 +138,10 @@ error_t parse_option(int key, char* arg, struct argp_state* state) {
             break;
 
         case 'o': {
-            print_options();
+            for (int i = 0; i < ARRAY_SIZE(options) - 1; i++) {
+                printf("--%s -%c ", options[i].name, options[i].key);
+            }
+            printf("\n");
         }
             break;
 
@@ -153,11 +155,4 @@ error_t parse_option(int key, char* arg, struct argp_state* state) {
             return 0;
     }
     return 0;
-}
-
-void print_options() {
-    for (int i = 0; i < ARRAY_SIZE(options) - 1; i++) {
-        printf("--%s -%c ", options[i].name, options[i].key);
-    }
-    printf("\n");
 }

@@ -14,6 +14,7 @@
 #include "file.h"
 #include "hash.h"
 #include "read.h"
+#include "block.h"
 
 #define HEADER_MAGIC 0xbeefaaaa
 
@@ -56,7 +57,6 @@ static struct Data_block* get_last_block(struct Data_block* block);
 static void write_to_blocks(FSFILE* file, const void* data, unsigned long size, unsigned long* bytes_written, unsigned long block_addr);
 static void read_file_contents(unsigned long block_addr, FILE* output);
 static int read_dir_contents(const FSFILE* file, unsigned long block_addr, FILE* output);
-static void print_block_info(struct Data_block* block, FILE* output);
 static int count_blocks(struct Data_block* block);
 static int get_size_of_blocks(unsigned long block_addr);
 
@@ -449,32 +449,6 @@ int read_dir_contents(const FSFILE* file, unsigned long block_addr, FILE* output
         return 0;
     
     return read_dir_contents(file, block->next, output);;
-}
-
-void print_block_info(struct Data_block* block, FILE* output) {
-    if (!block) {
-        fprintf(output, "Invalid block (block is NULL)\n");
-        return;
-    }
-    char* block_info[] = {
-        "-",
-        "BLOCK_USED",
-        "BLOCK_FREE"
-    };
-    fprintf(output,
-        "struct Data_block {\n"
-        "   type: %s\n"
-        "   data: '%.*s...'\n"
-        "   bytes_used: %i\n"
-        "   next: %lu\n"
-        "}\n"
-        ,
-        block_info[(int)block->block_type],
-        7,
-        block->data,
-        block->bytes_used,
-        block->next
-    );
 }
 
 int count_blocks(struct Data_block* block) {
