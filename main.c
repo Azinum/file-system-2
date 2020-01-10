@@ -15,7 +15,9 @@ int main(int argc, char** argv) {
         use_menu(argc, argv, stdout);
     }
     else {
-        fs_test();
+        fs_init(1024 << 4);
+        fs_dump_disk("./data/test.disk");
+        (void)fs_test;
     }
     return 0;
 }
@@ -28,7 +30,7 @@ void print_help(FILE* out) {
         " d <file>      # Create new directory\n"
         " w <file> \"contents\" # Open and write to file\n"
         " a <file> \"contents\" # Open and write (append) to file\n"
-        " x <file>      # Delete file"
+        " x <file>      # Delete file\n"
         " i <file>      # View file info\n"
         " l             # List files\n"
         " h             # Print this list\n"

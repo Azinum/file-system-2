@@ -37,7 +37,6 @@ struct FSFILE {
     char name[FILE_NAME_SIZE];
     unsigned long hashed_name;
     int size;   // Size in bytes
-    // int links_count;
     int type;   // T_FILE, T_DIR
     int mode;   // MODE_NONE, MODE_READ, MODE_WRITE, MODE_APPEND
     unsigned long first_block;

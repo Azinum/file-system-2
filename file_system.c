@@ -30,7 +30,6 @@
 #define DARK_GREEN ""
 #endif
 
-
 struct FS_disk_header {
     int magic;
     unsigned long disk_size;
@@ -51,6 +50,8 @@ static struct FS_state fs_state;
 static int is_initialized();
 static void error(char* format, ...);
 static void fslog(char* format, ...);
+
+static int initialize(struct FS_state* state, unsigned long disk_size);
 
 static struct Data_block* allocate_blocks(int count);
 static void flush(unsigned long from, unsigned long to);
@@ -158,6 +159,27 @@ static void* allocate(unsigned long size) {
     return NULL;
 }
 
+int initialize(struct FS_state* state, unsigned long disk_size) {
+    if (!state) {
+        return -1;
+    }
+    state->is_initialized = 1;
+    state->err = NULL;
+    state->log = fopen("log/disk_events.log", "ab");
+
+    state->disk_header = (struct FS_disk_header*)state->disk;
+    state->disk_header->magic = HEADER_MAGIC;
+    state->disk_header->disk_size = sizeof(char) * disk_size;
+    FSFILE* root = fs_create_dir("root");
+    if (!root) {
+        error("Failed to create root directory\n");
+        return -1;
+    }
+    state->current_directory = root;
+    state->disk_header->root_directory = get_absolute_address(root);
+    return 0;
+}
+
 struct Data_block* allocate_blocks(int count) {
     if (!is_initialized() || count <= 0) {
         return NULL;
@@ -209,7 +231,7 @@ FSFILE* allocate_file(const char* path, int file_type) {
 
     if (file) {
         file->block_type = BLOCK_FILE_HEADER;
-        strcpy(file->name, path);
+        strncpy(file->name, path, FILE_NAME_SIZE);
         file->hashed_name = hashed_name;
         file->type = file_type;
         file->first_block = 0;
@@ -385,10 +407,8 @@ void read_file_contents(unsigned long block_addr, FILE* output) {
     if (!block)
         return;
 
-    for (int i = 0; i < block->bytes_used; i++) {
-        fprintf(output, "%c", block->data[i]);
-    }
-
+    fprintf(output, "%.*s", block->bytes_used, block->data);
+    
     if (block->next == 0) {
         fprintf(output, "\n");
         return;
@@ -513,14 +533,17 @@ int can_access_address(unsigned long address) {
     return 1;
 }
 
+
 int fs_init(unsigned long disk_size) {
+    // Mute warnings
+    (void)get_size_of_blocks;
+    (void)print_block_info;
+    (void)deallocate_blocks;
+
     if (is_initialized()) {
         return -1;
     }
-    fs_state.is_initialized = 1;
-    fs_state.err = NULL;
-    fs_state.log = fopen("log/disk_events.log", "ab");
-
+    
     fs_state.disk = calloc(disk_size, sizeof(char));
     fs_state.current_directory = NULL;
     if (!fs_state.disk) {
@@ -528,18 +551,7 @@ int fs_init(unsigned long disk_size) {
         return -1;
     }
 
-    fs_state.disk_header = (struct FS_disk_header*)fs_state.disk;
-    fs_state.disk_header->magic = HEADER_MAGIC;
-    fs_state.disk_header->disk_size = sizeof(char) * disk_size;
-    FSFILE* root = fs_create_dir("root");
-    if (!root) {
-        error("Failed to create root directory\n");
-        return -1;
-    }
-
-    fs_state.current_directory = root;
-    fs_state.disk_header->root_directory = get_absolute_address(root);
-    return 0;
+    return initialize(&fs_state, disk_size);;
 }
 
 int fs_init_from_disk(const char* path) {
@@ -554,7 +566,7 @@ int fs_init_from_disk(const char* path) {
     }
     fs_state.is_initialized = 1;
     fs_state.err = fopen("log/error.log", "w+");
-    fs_state.log = fopen("log/disk_events.log", "ab");
+    fs_state.log = NULL;//fopen("log/disk_events.log", "ab");
 
     fs_state.disk = disk;
     fs_state.disk_header = (struct FS_disk_header*)fs_state.disk;
@@ -563,8 +575,8 @@ int fs_init_from_disk(const char* path) {
         return -1;
     }
     fs_state.current_directory = NULL;
-    if (fs_state.disk_header->root_directory != 0) {
-        fs_state.current_directory = (FSFILE*)get_ptr(fs_state.disk_header->root_directory);
+    if (can_access_address(fs_state.disk_header->root_directory)) {
+        fs_state.current_directory = get_ptr(fs_state.disk_header->root_directory);
     }
     return 0;
 }

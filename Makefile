@@ -8,7 +8,7 @@ FLAGS_DEBUG=-g
 
 FLAGS_RELEASE=-O2
 
-all: build_release clear run
+all: build_release run_generate
 
 build_release:
 	@if [ ! -d "./log/" ]; then \
@@ -18,6 +18,9 @@ build_release:
 
 run:
 	./file_system
+
+run_generate:
+	./scripts/generate/generate_sample_disk.bash
 
 clear:
 	clear
