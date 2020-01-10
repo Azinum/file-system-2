@@ -64,12 +64,10 @@ void use_menu(int argc, char** argv, FILE* output) {
         case 'r': {
             if (argc > 2) {
                 FSFILE* file = fs_open(argv[2], "r");
-                if (!file) {
-                    fs_get_error();
-                    break;
-                }
+                if (fs_get_error() != 0) break;
                 fs_read(file, output);
                 fs_close(file);
+                fs_get_error();
             }
         }
             break;
@@ -137,7 +135,21 @@ void use_menu(int argc, char** argv, FILE* output) {
             break;
 
         case 'l':
-            fs_list(output);
+            if (argc > 2) {
+                // TODO(lucas): Add function to open folders
+                FSFILE* file = fs_open(argv[2], "r");
+                if (!file) {
+                    fs_get_error();
+                    break;
+                }
+                fs_list(file, output);
+                if (fs_get_error() != 0)
+                    break;
+                fs_close(file);
+                break;
+            }
+            fs_list(NULL, output);
+            
             break;
 
         case 'h':

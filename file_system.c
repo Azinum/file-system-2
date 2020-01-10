@@ -39,6 +39,7 @@ struct FS_disk_header {
 struct FS_state {
     char* disk;
     int is_initialized;
+    int error;
     FILE* err;
     FILE* log;
     struct FS_disk_header* disk_header;
@@ -67,7 +68,7 @@ static struct Data_block* read_block(unsigned long block_addr);
 static struct Data_block* get_last_block(struct Data_block* block);
 static void write_to_blocks(FSFILE* file, const void* data, unsigned long size, unsigned long* bytes_written, unsigned long block_addr);
 static void read_file_contents(unsigned long block_addr, FILE* output);
-static void read_dir_contents(FSFILE* file, unsigned long block_addr, FILE* output);
+static int read_dir_contents(const FSFILE* file, unsigned long block_addr, FILE* output);
 static void print_block_info(struct Data_block* block, FILE* output);
 static int count_blocks(struct Data_block* block);
 static int get_size_of_blocks(unsigned long block_addr);
@@ -84,16 +85,14 @@ int is_initialized() {
 void error(char* format, ...) {
     if (!is_initialized())
         return;
-
+    fs_state.error = 1;
     va_list args;
     va_start(args, format);
 
-    if (fs_state.err) {
+    if (fs_state.err)
         vfprintf(fs_state.err, format, args);
-    }
-    else {
+    else
         vfprintf(stderr, format, args);
-    }
     
     va_end(args);
 }
@@ -167,6 +166,7 @@ int initialize(struct FS_state* state, unsigned long disk_size) {
         return -1;
     }
     state->is_initialized = 1;
+    fs_state.error = 0;
     state->err = NULL;
     state->log = fopen("log/disk_events.log", "ab");
 
@@ -419,12 +419,17 @@ void read_file_contents(unsigned long block_addr, FILE* output) {
     read_file_contents(block->next, output);
 }
 
-void read_dir_contents(FSFILE* file, unsigned long block_addr, FILE* output) {
+int read_dir_contents(const FSFILE* file, unsigned long block_addr, FILE* output) {
     if (!can_access_address(block_addr)) {
-        return;
+        return -1;
     }
     if (!output || !is_initialized()) {
-        return;
+        return -1;
+    }
+
+    if (file->type != T_DIR) {
+        error(DARK_GREEN "'%s'" NONE ": File is not a directory\n", file->name);
+        return -1;
     }
 
     struct Data_block* block = get_ptr(block_addr);
@@ -452,9 +457,9 @@ void read_dir_contents(FSFILE* file, unsigned long block_addr, FILE* output) {
     }
 
     if (block->next == 0)
-        return;
+        return 0;
     
-    read_dir_contents(file, block->next, output);
+    return read_dir_contents(file, block->next, output);;
 }
 
 void print_block_info(struct Data_block* block, FILE* output) {
@@ -568,6 +573,7 @@ int fs_init_from_disk(const char* path) {
         return -1;
     }
     fs_state.is_initialized = 1;
+    fs_state.error = 0;
     fs_state.err = fopen("log/error.log", "w+");
     fs_state.log = NULL;//fopen("log/disk_events.log", "ab");
 
@@ -765,29 +771,36 @@ void fs_print_file_info(const FSFILE* file, FILE* output) {
     fprintf(output, "header addr: %lu\n", get_absolute_address((void*)file));
 }
 
-void fs_read(const FSFILE* file, FILE* output) {
-    if (!file || !output || !is_initialized()) {
-        return;
-    }
-    if (file->first_block == 0) {
-        return;
+int fs_read(const FSFILE* file, FILE* output) {
+    if (!file || !output || !is_initialized())
+        return 0;
+
+    if (file->first_block == 0)
+        return 0;
+
+    if (file->type == T_DIR) {
+        error(DARK_GREEN "'%s/'" NONE ": Not a regular file\n", file->name);
+        return -1;
     }
 
     read_file_contents(file->first_block, output);
+    return 0;
 }
 
-void fs_list(FILE* output) {
+int fs_list(const FSFILE* file, FILE* output) {
     if (!output || !is_initialized()) {
-        return;
+        return -1;
     }
-
-    FSFILE* file = fs_state.current_directory;
 
     if (!file) {
-        return;
+        file = fs_state.current_directory;
+        if (!file) {
+            error("Current directory isn't set\n");
+            return -1;
+        }
     }
 
-    read_dir_contents(file, file->first_block, output);
+    return read_dir_contents(file, file->first_block, output);;
 }
 
 void fs_dump_disk(const char* path) {
@@ -802,19 +815,22 @@ void fs_dump_disk(const char* path) {
     }
 }
 
-void fs_get_error() {
+int fs_get_error() {
     if (!is_initialized()) {
         printf("%s\n", "File system is not initialized");
-        return;
+        return -1;
     }
-    if (!fs_state.err) {
-        return;
-    }
+    if (!fs_state.error)
+        return 0;   // Okay, no error
+    fs_state.error = 0; // Error has occured, reset it so that the error is not persistent upon next get_error() call
+    if (!fs_state.err)
+        return -1;
     char* contents = read_open_file(fs_state.err);
     if (contents) {
         printf("%s", contents);
         free(contents);
     }
+    return -1;
 }
 
 void fs_free() {
