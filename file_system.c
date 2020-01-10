@@ -598,7 +598,7 @@ FSFILE* fs_open(const char* path, const char* mode) {
         return NULL;
     }
     FSFILE* file = NULL;
-    unsigned long hashed = hash2(path);
+    unsigned long hashed = hash2(path); // TODO(lucas): change this to id (id = hash + file type)
 
     switch (*mode) {
         case 'w': {

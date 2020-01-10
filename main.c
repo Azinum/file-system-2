@@ -52,10 +52,7 @@ void use_menu(int argc, char** argv, FILE* output) {
         case 'c': {
             if (argc > 2) {
                 FSFILE* file = fs_open(argv[2], "w");
-                if (!file) {
-                    fs_get_error();
-                    break;
-                }
+                if (fs_get_error() != 0) break;
                 fs_close(file);
             }
         }
@@ -75,10 +72,7 @@ void use_menu(int argc, char** argv, FILE* output) {
         case 'd': {
             if (argc > 2) {
                 FSFILE* file = fs_create_dir(argv[2]);
-                if (!file) {
-                    fs_get_error();
-                    break;
-                }
+                if (fs_get_error() != 0) break;
                 fs_close(file);
             }
         }
@@ -87,12 +81,11 @@ void use_menu(int argc, char** argv, FILE* output) {
         case 'w': {
             if (argc > 3) {
                 FSFILE* file = fs_open(argv[2], "w");
-                if (!file) {
-                    fs_get_error();
-                    break;
-                }
+                if (fs_get_error() != 0) break;
+
                 unsigned long size = strlen(argv[3]);
                 fs_write(argv[3], size, file);
+                fs_get_error(); // In case write fails
                 fs_close(file);
             }
         }
@@ -101,12 +94,10 @@ void use_menu(int argc, char** argv, FILE* output) {
         case 'a': {
             if (argc > 3) {
                 FSFILE* file = fs_open(argv[2], "a");
-                if (!file) {
-                    fs_get_error();
-                    break;
-                }
+                if (fs_get_error() != 0) break;
                 unsigned long size = strlen(argv[3]);
                 fs_write(argv[3], size, file);
+                fs_get_error();
                 fs_close(file);
             }
         }
@@ -124,10 +115,7 @@ void use_menu(int argc, char** argv, FILE* output) {
         case 'i': {
             if (argc > 2) {
                 FSFILE* file = fs_open(argv[2], "r");
-                if (!file) {
-                    fs_get_error();
-                    break;
-                }
+                if (fs_get_error() != 0) break;
                 fs_print_file_info(file, output);
                 fs_close(file);
             }
@@ -138,13 +126,9 @@ void use_menu(int argc, char** argv, FILE* output) {
             if (argc > 2) {
                 // TODO(lucas): Add function to open folders
                 FSFILE* file = fs_open(argv[2], "r");
-                if (!file) {
-                    fs_get_error();
-                    break;
-                }
+                if (fs_get_error() != 0) break;
                 fs_list(file, output);
-                if (fs_get_error() != 0)
-                    break;
+                fs_get_error();
                 fs_close(file);
                 break;
             }
