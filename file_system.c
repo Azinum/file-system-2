@@ -17,19 +17,6 @@
 
 #define HEADER_MAGIC 0xbeefaaaa
 
-#define COLORING 1
-
-#if COLORING
-#define RED "\e[1;31m"
-#define BLUE "\e[1;34m"
-#define NONE "\e[0m"
-#define DARK_GREEN "\e[0;32m"
-#else
-#define RED ""
-#define BLUE ""
-#define DARK_GREEN ""
-#endif
-
 struct FS_disk_header {
     int magic;
     unsigned long disk_size;
@@ -578,7 +565,7 @@ int fs_init_from_disk(const char* path) {
     fs_state.error = 0;
     fs_state.err = NULL; //fopen("./log/error.log", "w+");
     fs_state.log = fopen(DATA_PATH "/log/disk_events.log", "ab");
-    
+
     fs_state.disk = disk;
     fs_state.disk_header = (struct FS_disk_header*)fs_state.disk;
     if (fs_state.disk_header->magic != HEADER_MAGIC) {
