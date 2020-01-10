@@ -1,6 +1,6 @@
 .DS_Store
 file_system
 file_system.dSYM/
-test/*.disk
+data/*.disk
 log/
 
