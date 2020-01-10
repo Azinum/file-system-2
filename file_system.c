@@ -63,7 +63,7 @@ static void* allocate(unsigned long size);
 static FSFILE* allocate_file(const char* path, int file_type);
 static int deallocate_file(FSFILE* file);
 static void deallocate_blocks(struct Data_block* block);
-static FSFILE* find_file(unsigned long id, unsigned long* position);
+static FSFILE* find_file(unsigned long id, unsigned long* position, int file_type);
 static struct Data_block* read_block(unsigned long block_addr);
 static struct Data_block* get_last_block(struct Data_block* block);
 static void write_to_blocks(FSFILE* file, const void* data, unsigned long size, unsigned long* bytes_written, unsigned long block_addr);
@@ -168,7 +168,7 @@ int initialize(struct FS_state* state, unsigned long disk_size) {
     state->is_initialized = 1;
     fs_state.error = 0;
     state->err = NULL;
-    state->log = fopen("log/disk_events.log", "ab");
+    state->log = NULL; //fopen("log/disk_events.log", "ab");
 
     state->disk_header = (struct FS_disk_header*)state->disk;
     state->disk_header->magic = HEADER_MAGIC;
@@ -228,7 +228,7 @@ FSFILE* allocate_file(const char* path, int file_type) {
     unsigned long id = hash2(path) + file_type;
 
     FSFILE* f;
-    if ((f = find_file(id, NULL))) {
+    if ((f = find_file(id, NULL, file_type))) {
         return NULL;
     }
 
@@ -288,7 +288,7 @@ void deallocate_blocks(struct Data_block* block) {
     }
 }
  
-FSFILE* find_file(unsigned long id, unsigned long* location) {
+FSFILE* find_file(unsigned long id, unsigned long* location, int file_type) {
     if (!is_initialized()) {
         return NULL;
     }
@@ -577,7 +577,7 @@ int fs_init_from_disk(const char* path) {
     fs_state.is_initialized = 1;
     fs_state.error = 0;
     fs_state.err = fopen("log/error.log", "w+");
-    fs_state.log = NULL;//fopen("log/disk_events.log", "ab");
+    fs_state.log = fopen("log/disk_events.log", "ab");
 
     fs_state.disk = disk;
     fs_state.disk_header = (struct FS_disk_header*)fs_state.disk;
@@ -600,12 +600,13 @@ FSFILE* fs_open(const char* path, const char* mode) {
         return NULL;
     }
     FSFILE* file = NULL;
-    unsigned long id = hash2(path) + T_FILE;
+    int file_type = T_FILE;
+    unsigned long id = hash2(path) + file_type;
 
     switch (*mode) {
         case 'w': {
 
-            if ((file = find_file(id, NULL))) {
+            if ((file = find_file(id, NULL, file_type))) {
                 if (file->type == T_FILE) {
                     deallocate_file(file);
                     file->mode = MODE_WRITE;
@@ -625,7 +626,7 @@ FSFILE* fs_open(const char* path, const char* mode) {
             break;
 
         case 'r': {
-            FSFILE* file = find_file(id, NULL);
+            FSFILE* file = find_file(id, NULL, file_type);
             if (!file) {
                 error(DARK_GREEN "'%s'" NONE ": No such file\n", path);
                 return NULL;
@@ -637,7 +638,7 @@ FSFILE* fs_open(const char* path, const char* mode) {
             break;
 
         case 'a': {
-            FSFILE* file = find_file(id, NULL);
+            FSFILE* file = find_file(id, NULL, file_type);
             if (!file) {
                 error(DARK_GREEN "'%s'" NONE ": No such file\n", path);
                 return NULL;
@@ -658,9 +659,9 @@ FSFILE* fs_open_dir(const char* path) {
     if (!is_initialized()) {
         return NULL;
     }
-
-    unsigned long id = hash2(path) + T_DIR;
-    FSFILE* file = find_file(id, NULL);
+    int file_type = T_DIR;
+    unsigned long id = hash2(path) + file_type;
+    FSFILE* file = find_file(id, NULL, file_type);
     if (!file) {
         error(DARK_GREEN "'%s'" NONE ": No such directory\n", path);
         return NULL;
@@ -683,10 +684,12 @@ FSFILE* fs_create_dir(const char* path) {
     return NULL;
 }
 
+// TODO(lucas): Implement removal of directories
 int fs_remove_file(const char* path) {
-    unsigned long hashed = hash2(path);
+    int file_type = T_FILE;
+    unsigned long id = hash2(path) + file_type;
     unsigned long location = 0;
-    FSFILE* file = find_file(hashed, &location);
+    FSFILE* file = find_file(id, &location, file_type);
     if (!file) {
         error(DARK_GREEN "'%s'" NONE " No such file or directory\n", path);
         return -1;
@@ -895,7 +898,7 @@ void fs_test() {
     }
 
     {
-        FSFILE* file = find_file(hash2(name), NULL);
+        FSFILE* file = find_file(hash2(name), NULL, T_FILE);
         assert(file != NULL);
     }
     {

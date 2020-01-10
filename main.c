@@ -43,10 +43,9 @@ void use_menu(int argc, char** argv, FILE* output) {
     }
 
     const char* disk_path = "./data/test.disk";
-    if (fs_init_from_disk(disk_path)) {
-        fs_get_error();
-        return;
-    }
+    fs_init_from_disk(disk_path);
+    if (fs_get_error() != 0) return;
+        
 
     switch (*argv[1]) {
         case 'c': {
