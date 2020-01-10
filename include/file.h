@@ -7,8 +7,10 @@
 #define BLOCK_SIZE 32
 
 enum File_types {
+    T_NONE,
     T_FILE = 1,
-    T_DIR
+    T_DIR,
+    T_END
 };
 
 enum Block_types {
@@ -35,7 +37,7 @@ struct Data_block {
 struct FSFILE {
     char block_type;    // BLOCK_FILE_HEADER, BLOCK_FILE_HEADER_FREE
     char name[FILE_NAME_SIZE];
-    unsigned long hashed_name;
+    unsigned long id;   // id = hash + file type
     int size;   // Size in bytes
     int type;   // T_FILE, T_DIR
     int mode;   // MODE_NONE, MODE_READ, MODE_WRITE, MODE_APPEND

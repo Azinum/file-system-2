@@ -63,7 +63,7 @@ static void* allocate(unsigned long size);
 static FSFILE* allocate_file(const char* path, int file_type);
 static int deallocate_file(FSFILE* file);
 static void deallocate_blocks(struct Data_block* block);
-static FSFILE* find_file(unsigned long hashed_name, unsigned long* position);
+static FSFILE* find_file(unsigned long id, unsigned long* position);
 static struct Data_block* read_block(unsigned long block_addr);
 static struct Data_block* get_last_block(struct Data_block* block);
 static void write_to_blocks(FSFILE* file, const void* data, unsigned long size, unsigned long* bytes_written, unsigned long block_addr);
@@ -221,12 +221,14 @@ FSFILE* allocate_file(const char* path, int file_type) {
         return NULL;
     }
 
+    assert((file_type > T_NONE) && (file_type < T_END));
+
     FSFILE* dir = fs_state.current_directory;
 
-    unsigned long hashed_name = hash2(path);
+    unsigned long id = hash2(path) + file_type;
 
     FSFILE* f;
-    if ((f = find_file(hashed_name, NULL))) {
+    if ((f = find_file(id, NULL))) {
         return NULL;
     }
 
@@ -235,7 +237,7 @@ FSFILE* allocate_file(const char* path, int file_type) {
     if (file) {
         file->block_type = BLOCK_FILE_HEADER;
         strncpy(file->name, path, FILE_NAME_SIZE);
-        file->hashed_name = hashed_name;
+        file->id = id;
         file->type = file_type;
         file->first_block = 0;
 
@@ -286,7 +288,7 @@ void deallocate_blocks(struct Data_block* block) {
     }
 }
  
-FSFILE* find_file(unsigned long hashed_name, unsigned long* location) {
+FSFILE* find_file(unsigned long id, unsigned long* location) {
     if (!is_initialized()) {
         return NULL;
     }
@@ -312,7 +314,7 @@ FSFILE* find_file(unsigned long hashed_name, unsigned long* location) {
             }
             file = (FSFILE*)get_ptr(addr);
             if (file) {
-                if (file->hashed_name == hashed_name) {
+                if (file->id == id) {
                     if (location != NULL) {
                         *location = get_absolute_address(&block->data[i]);
                     }
@@ -598,12 +600,12 @@ FSFILE* fs_open(const char* path, const char* mode) {
         return NULL;
     }
     FSFILE* file = NULL;
-    unsigned long hashed = hash2(path); // TODO(lucas): change this to id (id = hash + file type)
+    unsigned long id = hash2(path) + T_FILE;
 
     switch (*mode) {
         case 'w': {
 
-            if ((file = find_file(hashed, NULL))) {
+            if ((file = find_file(id, NULL))) {
                 if (file->type == T_FILE) {
                     deallocate_file(file);
                     file->mode = MODE_WRITE;
@@ -623,7 +625,7 @@ FSFILE* fs_open(const char* path, const char* mode) {
             break;
 
         case 'r': {
-            FSFILE* file = find_file(hashed, NULL);
+            FSFILE* file = find_file(id, NULL);
             if (!file) {
                 error(DARK_GREEN "'%s'" NONE ": No such file\n", path);
                 return NULL;
@@ -635,7 +637,7 @@ FSFILE* fs_open(const char* path, const char* mode) {
             break;
 
         case 'a': {
-            FSFILE* file = find_file(hashed, NULL);
+            FSFILE* file = find_file(id, NULL);
             if (!file) {
                 error(DARK_GREEN "'%s'" NONE ": No such file\n", path);
                 return NULL;
@@ -650,6 +652,20 @@ FSFILE* fs_open(const char* path, const char* mode) {
     }
     error("Open file failed\n");
     return NULL;
+}
+
+FSFILE* fs_open_dir(const char* path) {
+    if (!is_initialized()) {
+        return NULL;
+    }
+
+    unsigned long id = hash2(path) + T_DIR;
+    FSFILE* file = find_file(id, NULL);
+    if (!file) {
+        error(DARK_GREEN "'%s'" NONE ": No such directory\n", path);
+        return NULL;
+    }
+    return file;
 }
 
 FSFILE* fs_create_dir(const char* path) {
@@ -800,7 +816,7 @@ int fs_list(const FSFILE* file, FILE* output) {
         }
     }
 
-    return read_dir_contents(file, file->first_block, output);;
+    return read_dir_contents(file, file->first_block, output);
 }
 
 void fs_dump_disk(const char* path) {

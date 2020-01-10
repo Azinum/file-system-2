@@ -125,11 +125,11 @@ void use_menu(int argc, char** argv, FILE* output) {
         case 'l':
             if (argc > 2) {
                 // TODO(lucas): Add function to open folders
-                FSFILE* file = fs_open(argv[2], "r");
+                FSFILE* dir = fs_open_dir(argv[2]);
                 if (fs_get_error() != 0) break;
-                fs_list(file, output);
+                fs_list(dir, output);
                 fs_get_error();
-                fs_close(file);
+                fs_close(dir);
                 break;
             }
             fs_list(NULL, output);
