@@ -4,19 +4,20 @@
 # run this script to create a few sample files on a disk
 
 function start() {
-	./file_system
+	local program_name=fs2
+	./${program_name}
 	info_file='data.txt'
-	./file_system -c ${info_file}
+	./${program_name} -c ${info_file}
 	shopt -s dotglob
 	shopt -s nullglob
-	files=(scripts/generate/sample/*)
+	files=(./scripts/sample/*)
 	for file in ${files[@]}; do
-		./file_system -a ${info_file} ${file}"
+		./${program_name} -a ${info_file} ${file}"
 "	# To add a newline
 		if [ -d $file ]; then
-			./file_system -d "$(basename "$file")"
+			./${program_name} -d "$(basename "$file")"
 		elif [ -f $file ]; then
-			./file_system -w "$(basename "$file")" "$(cat ${file})"
+			./${program_name} -w "$(basename "$file")" "$(cat ${file})"
 		fi
 	done
 }

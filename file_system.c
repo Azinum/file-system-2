@@ -576,8 +576,8 @@ int fs_init_from_disk(const char* path) {
     }
     fs_state.is_initialized = 1;
     fs_state.error = 0;
-    fs_state.err = fopen("log/error.log", "w+");
-    fs_state.log = fopen("log/disk_events.log", "ab");
+    fs_state.err = NULL; //fopen("./log/error.log", "w+");
+    fs_state.log = NULL; //fopen("./log/disk_events.log", "ab");
 
     fs_state.disk = disk;
     fs_state.disk_header = (struct FS_disk_header*)fs_state.disk;
@@ -840,7 +840,7 @@ int fs_get_error() {
         return -1;
     }
     if (!fs_state.error)
-        return 0;   // Okay, no error
+        return 0;       // Okay, no error
     fs_state.error = 0; // Error has occured, reset it so that the error is not persistent upon next get_error() call
     if (!fs_state.err)
         return -1;
@@ -866,6 +866,7 @@ void fs_free() {
     }
 }
 
+// This test function is no longer working due to change of paths
 void fs_test() {
     unsigned long disk_size = 1024 << 3;
     assert(fs_init(disk_size) == 0);

@@ -2,34 +2,41 @@
 
 CC=gcc
 
-FLAGS=-o file_system *.c -std=c99 -Iinclude -Wall
+PROGRAM_NAME=fs2
+
+FLAGS=-o $(PROGRAM_NAME) *.c -std=c99 -Iinclude -Wall
 
 FLAGS_DEBUG=-g
 
 FLAGS_RELEASE=-O2
 
-all: build_release run_generate
+INSTALL_TOP=/usr/local
+INSTALL_BIN=$(INSTALL_TOP)/bin
+INSTALL_SHARE=$(INSTALL_TOP)/share
+
+all: build_release generate_sample_disk
+
+install: build_release generate_sample_disk
+	cp -a ./scripts/fs2 /etc/bash_completion.d/fs2
+	chmod o+x $(PROGRAM_NAME)
+	mkdir -p $(INSTALL_SHARE)/$(PROGRAM_NAME)
+	mkdir -p $(INSTALL_SHARE)/$(PROGRAM_NAME)/log
+	cp -ar ./data/ $(INSTALL_SHARE)/$(PROGRAM_NAME)/
+	cp -a ./$(PROGRAM_NAME) $(INSTALL_BIN)/$(PROGRAM_NAME)
+	chmod o+x $(INSTALL_SHARE)/$(PROGRAM_NAME)/
 
 build_release:
-	@if [ ! -d "./log/" ]; then \
-		mkdir log; \
-	fi
+	mkdir -p log
 	$(CC) $(FLAGS) $(FLAGS_RELEASE)
 
-run:
-	./file_system
-
-run_generate:
-	./scripts/generate/generate_sample_disk.bash
-
-clear:
-	clear
+generate_sample_disk:
+	./scripts/generate_sample_disk.bash
 
 debug: build_debug
-	lldb ./file_system
+	lldb ./$(PROGRAM_NAME)
 
 debug_linux: build_debug
-	gdb ./file_system
+	gdb ./$(PROGRAM_NAME)
 
 build_debug:
 	$(CC) $(FLAGS) $(FLAGS_DEBUG)

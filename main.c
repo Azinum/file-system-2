@@ -4,12 +4,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <argp.h>
+#include <unistd.h>
 
 #include "file_system.h"
 
 static char args_doc[] = "";
-static char doc[] = "File System 2 (fs2) - a file system emulator";
+static char doc[] = "File System 2 (fs2) - file system emulator";
 
+// const char* name, int key, const char* arg, int flags, const char* doc, int group
 static struct argp_option options[] = {
   {"create",     'c', "file",      0,  "Create new file"},
   {"read",       'r', "file",      0,  "Read file"},
@@ -19,6 +21,8 @@ static struct argp_option options[] = {
   {"write",      'w', "file",      0,  "Write data to file"},
   {"append",     'a', "file",      0,  "Append data to file"},
   {"info",       'i', "file",      0,  "Print file info"},
+  {"options",    'o', 0,           0,  "Get all options"},
+  {"path",       'p', "path",      0,  "Specify data path"},
   { 0 }
 };
 
@@ -29,6 +33,7 @@ struct Arguments {
 };
 
 static error_t parse_option(int key, char *arg, struct argp_state *state);
+void print_options();
 
 int main(int argc, char** argv) {
     struct argp argp = {options, parse_option, args_doc, doc};
@@ -39,7 +44,7 @@ int main(int argc, char** argv) {
         .output_file = stdout
     };
 
-    char* disk_path = "./data/test.disk";
+    char* disk_path = SHARE_PATH "/fs2/data/test.disk";
 
     if (argc > 1) {
         fs_init_from_disk(disk_path);
@@ -134,8 +139,27 @@ error_t parse_option(int key, char* arg, struct argp_state* state) {
             fs_close(file);
         }
             break;
+
+        case 'o': {
+            print_options();
+        }
+            break;
+
+        case 'p': {
+            char* path = arg;
+            printf("Set path to: '%s'\n", path);
+        }
+            break;
+
         default:
             return 0;
     }
     return 0;
+}
+
+void print_options() {
+    for (int i = 0; i < ARRAY_SIZE(options) - 1; i++) {
+        printf("--%s -%c ", options[i].name, options[i].key);
+    }
+    printf("\n");
 }
