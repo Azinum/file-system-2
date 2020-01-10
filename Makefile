@@ -4,7 +4,9 @@ CC=gcc
 
 PROGRAM_NAME=fs2
 
-FLAGS=-o $(PROGRAM_NAME) *.c -std=c99 -largp -Iinclude -Wall
+FLAGS=-o $(PROGRAM_NAME) *.c -std=c99 -Iinclude -Wall
+
+FLAGS_MAC=-largp	# Need to link argp on OSX
 
 FLAGS_DEBUG=-g
 
@@ -38,7 +40,7 @@ build_local:
 	$(CC) $(FLAGS) $(FLAGS_RELEASE) -D LOCAL_BUILD=1
 
 copy_local:
-	cp -aR ./data/ $(INSTALL_SHARE)/$(PROGRAM_NAME)/data/
+	rsync -da ./data/ $(DATA_PATH)/data/
 
 generate_sample_disk:
 	./scripts/generate_sample_disk.bash
