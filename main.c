@@ -3,144 +3,139 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <argp.h>
 
 #include "file_system.h"
 
-void print_help(FILE* out);
-void use_menu(int argc, char** argv, FILE* output);
+static char args_doc[] = "";
+static char doc[] = "File System 2 (fs2) - a file system emulator";
 
+static struct argp_option options[] = {
+  {"create",     'c', "file",      0,  "Create new file"},
+  {"read",       'r', "file",      0,  "Read file"},
+  {"create-dir", 'd', "file",      0,  "Create new directory"},
+  {"remove",     'x', "file",      0,  "Remove regular file"},
+  {"list",       'l', "file",      OPTION_ARG_OPTIONAL,  "List directory contents"},
+  {"write",      'w', "file",      0,  "Write data to file"},
+  {"append",     'a', "file",      0,  "Append data to file"},
+  {"info",       'i', "file",      0,  "Print file info"},
+  { 0 }
+};
+
+struct Arguments {
+    char* args[2];
+    int silent, verbose;
+    FILE* output_file;
+};
+
+static error_t parse_option(int key, char *arg, struct argp_state *state);
 
 int main(int argc, char** argv) {
+    struct argp argp = {options, parse_option, args_doc, doc};
+    struct Arguments arguments = {
+        .args = {"", ""},
+        .silent = 0,
+        .verbose = 1,
+        .output_file = stdout
+    };
+
+    char* disk_path = "./data/test.disk";
+
     if (argc > 1) {
-        use_menu(argc, argv, stdout);
+        fs_init_from_disk(disk_path);
+        argp_parse(&argp, argc, argv, 0, 0, &arguments);
+        fs_dump_disk(disk_path);
     }
     else {
-        fs_init(1024 << 4);
-        fs_dump_disk("./data/test.disk");
+        fs_init(1024 << 4); // Create an empty disk
+        fs_dump_disk(disk_path);
         (void)fs_test;
     }
     return 0;
 }
 
-void print_help(FILE* out) {
-    fprintf(out,
-        "COMMANDS:\n"
-        " c <file>      # Create new file\n"
-        " r <file>      # Read file\n"
-        " d <file>      # Create new directory\n"
-        " w <file> \"contents\" # Open and write to file\n"
-        " a <file> \"contents\" # Open and write (append) to file\n"
-        " x <file>      # Delete file\n"
-        " i <file>      # View file info\n"
-        " l             # List files\n"
-        " h             # Print this list\n"
-    );
-}
+error_t parse_option(int key, char* arg, struct argp_state* state) {
+    struct Arguments* arguments = state->input;
+    int arg_count = state->argc - state->next;
+    char** args = (state->argv + state->next);
 
-void use_menu(int argc, char** argv, FILE* output) {
-    if (argc < 2) {
-        return;
-    }
-
-    const char* disk_path = "./data/test.disk";
-    fs_init_from_disk(disk_path);
-    if (fs_get_error() != 0) return;
-        
-
-    switch (*argv[1]) {
+    switch (key) {
         case 'c': {
-            if (argc > 2) {
-                FSFILE* file = fs_open(argv[2], "w");
-                if (fs_get_error() != 0) break;
-                fs_close(file);
-            }
+            FSFILE* file = fs_open(arg, "w");
+            if (fs_get_error() != 0) break;
+            fs_close(file);
         }
             break;
-
+        
         case 'r': {
-            if (argc > 2) {
-                FSFILE* file = fs_open(argv[2], "r");
-                if (fs_get_error() != 0) break;
-                fs_read(file, output);
-                fs_close(file);
-                fs_get_error();
-            }
+            FSFILE* file = fs_open(arg, "r");
+            if (fs_get_error() != 0) break;
+            fs_read(file, arguments->output_file);
+            fs_close(file);
+            fs_get_error();
         }
             break;
 
         case 'd': {
-            if (argc > 2) {
-                FSFILE* file = fs_create_dir(argv[2]);
-                if (fs_get_error() != 0) break;
-                fs_close(file);
-            }
-        }
-            break;
-
-        case 'w': {
-            if (argc > 3) {
-                FSFILE* file = fs_open(argv[2], "w");
-                if (fs_get_error() != 0) break;
-
-                unsigned long size = strlen(argv[3]);
-                fs_write(argv[3], size, file);
-                fs_get_error(); // In case write fails
-                fs_close(file);
-            }
-        }
-            break;
-
-        case 'a': {
-            if (argc > 3) {
-                FSFILE* file = fs_open(argv[2], "a");
-                if (fs_get_error() != 0) break;
-                unsigned long size = strlen(argv[3]);
-                fs_write(argv[3], size, file);
-                fs_get_error();
-                fs_close(file);
-            }
+            FSFILE* file = fs_create_dir(arg);
+            if (fs_get_error() != 0) break;
+            fs_close(file);
         }
             break;
 
         case 'x': {
-            if (argc > 2) {
-                if (fs_remove_file(argv[2]) != 0) {
-                    fs_get_error();
-                }
+            if (fs_remove_file(arg) != 0) {
+                fs_get_error();
             }
+        }
+            break;
+
+        case 'l': {
+            if (arg_count == 0) {
+                fs_list(NULL, arguments->output_file);
+                break;
+            }
+            FSFILE* dir = fs_open_dir(*args);
+            if (fs_get_error() != 0) break;
+            fs_list(dir, arguments->output_file);
+            fs_get_error();
+            fs_close(dir);
+        }
+            break;
+
+        case 'w': {
+            FSFILE* file = fs_open(arg, "w");
+            if (fs_get_error() != 0) break;
+            if (arg_count > 0) {
+                unsigned long size = strlen(args[0]);
+                fs_write(args[0], size, file);
+                fs_get_error(); // In case write fails
+            }
+            fs_close(file);
+        }
+            break;
+
+        case 'a': {
+            FSFILE* file = fs_open(arg, "a");
+            if (fs_get_error() != 0) break;
+            if (arg_count > 0) {
+                unsigned long size = strlen(args[0]);
+                fs_write(args[0], size, file);
+                fs_get_error();
+            }
+            fs_close(file);
         }
             break;
 
         case 'i': {
-            if (argc > 2) {
-                FSFILE* file = fs_open(argv[2], "r");
-                if (fs_get_error() != 0) break;
-                fs_print_file_info(file, output);
-                fs_close(file);
-            }
+            FSFILE* file = fs_open(arg, "r");
+            if (fs_get_error() != 0) break;
+            fs_print_file_info(file, arguments->output_file);
+            fs_close(file);
         }
             break;
-
-        case 'l':
-            if (argc > 2) {
-                // TODO(lucas): Add function to open folders
-                FSFILE* dir = fs_open_dir(argv[2]);
-                if (fs_get_error() != 0) break;
-                fs_list(dir, output);
-                fs_get_error();
-                fs_close(dir);
-                break;
-            }
-            fs_list(NULL, output);
-            
-            break;
-
-        case 'h':
-            print_help(stdout);
-            break;
-
         default:
-            break;
+            return 0;
     }
-    fs_dump_disk("./data/test.disk");
+    return 0;
 }
