@@ -17,7 +17,7 @@ INSTALL_SHARE=$(INSTALL_TOP)/share
 all: build_release generate_sample_disk
 
 install: build_release generate_sample_disk
-	cp -a ./scripts/fs2 /etc/bash_completion.d/fs2
+	cp -a ./scripts/$(PROGRAM_NAME).bash /etc/bash_completion.d/$(PROGRAM_NAME).bash
 	chmod o+x $(PROGRAM_NAME)
 	mkdir -p $(INSTALL_SHARE)/$(PROGRAM_NAME)
 	mkdir -p $(INSTALL_SHARE)/$(PROGRAM_NAME)/log
