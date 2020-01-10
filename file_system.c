@@ -53,6 +53,9 @@ static void fslog(char* format, ...);
 
 static int initialize(struct FS_state* state, unsigned long disk_size);
 
+
+// TODO(lucas): Move some of these functions to other suitable files
+// Suggestion: move all block (alloc, dealloc) related logic to block.c
 static struct Data_block* allocate_blocks(int count);
 static void flush(unsigned long from, unsigned long to);
 static void* allocate(unsigned long size);
@@ -246,6 +249,7 @@ FSFILE* allocate_file(const char* path, int file_type) {
 }
 
 // return -1 on failure
+// FIX(lucas): deallocate blocks/deallocate files isn't working properly
 int deallocate_file(FSFILE* file) {
     if (!is_initialized() || !file) {
         return -1;
@@ -266,7 +270,6 @@ int deallocate_file(FSFILE* file) {
 }
 
 // Mark blocks as free
-// This function might be the source of the @BUG
 void deallocate_blocks(struct Data_block* block) {
     if (!block) {
         return;
@@ -695,7 +698,7 @@ void fs_close(FSFILE* file) {
     }
 }
 
-// @TODO: Cleanup!
+// TODO(lucas): Cleanup!
 int fs_write(const void* data, unsigned long size, FSFILE* file) {
     if (!file || !is_initialized()) {
         return -1;
