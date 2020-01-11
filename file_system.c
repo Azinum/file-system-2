@@ -23,6 +23,7 @@ struct FS_disk_header {
     int magic;
     unsigned long disk_size;
     unsigned long root_directory;
+    unsigned long current_directory;
 };
 
 struct FS_state {
@@ -32,7 +33,6 @@ struct FS_state {
     FILE* err;
     FILE* log;
     struct FS_disk_header* disk_header;
-    FSFILE* current_directory;
 };
 
 static struct FS_state fs_state;
@@ -52,6 +52,7 @@ static void* allocate(unsigned long size);
 static FSFILE* allocate_file(const char* path, int file_type);
 static int deallocate_file(FSFILE* file);
 static int deallocate_blocks(unsigned long addr);
+static int remove_file(const char* path, int file_type);
 static int free_block(unsigned long block_addr, unsigned long block_size, char verify_block_type);
 static FSFILE* find_file(unsigned long id, unsigned long* position, int file_type);
 static struct Data_block* read_block(unsigned long block_addr);
@@ -167,8 +168,7 @@ int initialize(struct FS_state* state, unsigned long disk_size) {
         error("Failed to create root directory\n");
         return -1;
     }
-    state->current_directory = root;
-    state->disk_header->root_directory = get_absolute_address(root);
+    state->disk_header->current_directory = state->disk_header->root_directory = get_absolute_address(root);
     return 0;
 }
 
@@ -212,12 +212,12 @@ FSFILE* allocate_file(const char* path, int file_type) {
 
     assert((file_type > T_NONE) && (file_type < T_END));
 
-    FSFILE* dir = fs_state.current_directory;
+    FSFILE* dir = get_ptr(fs_state.disk_header->current_directory);
 
     unsigned long id = hash2(path) + file_type;
 
-    FSFILE* f;
-    if ((f = find_file(id, NULL, file_type))) {
+    if ((find_file(id, NULL, file_type))) {
+        error(COLOR_MESSAGE "'%s'" NONE " File already exists\n", path);
         return NULL;
     }
 
@@ -279,6 +279,34 @@ int deallocate_blocks(unsigned long addr) {
     return 0;
 }
 
+// Implement smarter deletion of files (current deletion is lazy)
+int remove_file(const char* path, int file_type) {
+    unsigned long id = hash2(path) + file_type;
+    unsigned long location = 0;
+    FSFILE* file = find_file(id, &location, file_type);
+    if (!file || !location) {
+        error(COLOR_MESSAGE "'%s'" NONE " No such file or directory\n", path);
+        return -1;
+    }
+
+    if (deallocate_file(file) != 0) {
+        return -1;
+    }
+    unsigned long* file_addr = get_ptr(location);
+    assert(get_absolute_address(file) == *file_addr);   // Assert is called when trying to remove 'root' directory
+
+    if (!file_addr) {
+        error(COLOR_MESSAGE "'%s'" NONE " Failed to remove file\n");
+        return -1;
+    }
+    if (free_block(*file_addr, TOTAL_FILE_HEADER_SIZE, BLOCK_FILE_HEADER) != 0) {
+        return -1;
+    }
+    fslog("Removed file '%s' (%lu)\n", path, *file_addr);
+    *file_addr = 0;
+    return 0;
+}
+
 int free_block(unsigned long block_addr, unsigned long block_size, char verify_block_type) {
     if (!can_access_address(block_addr)) {
         error("Failed to access address " COLOR_NUMBERS "'%lu'\n" NONE, block_addr);
@@ -300,7 +328,7 @@ FSFILE* find_file(unsigned long id, unsigned long* location, int file_type) {
         return NULL;
     }
 
-    FSFILE* dir = fs_state.current_directory;
+    FSFILE* dir = get_ptr(fs_state.disk_header->current_directory);
 
     if (!dir) {
         return NULL;
@@ -536,7 +564,6 @@ int fs_init(unsigned long disk_size) {
     }
     
     fs_state.disk = calloc(disk_size, sizeof(char));
-    fs_state.current_directory = NULL;
     if (!fs_state.disk) {
         error("%s: Failed to allocate memory for disk\n", __FUNCTION__);
         return -1;
@@ -564,10 +591,6 @@ int fs_init_from_disk(const char* path) {
     if (fs_state.disk_header->magic != HEADER_MAGIC) {
         error("Failed to load disk. Invalid header magic (is: " COLOR_NUMBERS "%i" NONE ", should be: " COLOR_NUMBERS "%i" NONE ").\n", fs_state.disk_header->magic, HEADER_MAGIC);
         return -1;
-    }
-    fs_state.current_directory = NULL;
-    if (can_access_address(fs_state.disk_header->root_directory)) {
-        fs_state.current_directory = get_ptr(fs_state.disk_header->root_directory);
     }
     return 0;
 }
@@ -664,33 +687,26 @@ FSFILE* fs_create_dir(const char* path) {
     return NULL;
 }
 
-// TODO(lucas): Implement removal of directories
-int fs_remove_file(const char* path) {
-    int file_type = T_FILE;
-    unsigned long id = hash2(path) + file_type;
-    unsigned long location = 0;
-    FSFILE* file = find_file(id, &location, file_type);
-    if (!file || !location) {
-        error(COLOR_MESSAGE "'%s'" NONE " No such file\n", path);
+// Change current directory
+int fs_change_dir(const char* path) {
+    if (!is_initialized()) {
         return -1;
     }
-
-    if (deallocate_file(file) != 0) {
+    FSFILE* dir = fs_open_dir(path);
+    if (!dir) {
         return -1;
     }
-    unsigned long* file_addr = get_ptr(location);
-    assert(get_absolute_address(file) == *file_addr);
-
-    if (!file_addr) {
-        error(COLOR_MESSAGE "'%s'" NONE " Failed to remove file\n");
-        return -1;
-    }
-    if (free_block(*file_addr, TOTAL_FILE_HEADER_SIZE, BLOCK_FILE_HEADER) != 0) {
-        return -1;
-    }
-    fslog("Removed file '%s' (%lu)\n", path, *file_addr);
-    *file_addr = 0;
+    fs_state.disk_header->current_directory = get_absolute_address(dir);
     return 0;
+}
+
+
+int fs_remove_file(const char* path) {
+    return remove_file(path, T_FILE);
+}
+
+int fs_remove_dir(const char* path) {
+    return remove_file(path, T_DIR);
 }
 
 void fs_close(FSFILE* file) {
@@ -791,7 +807,7 @@ int fs_list(const FSFILE* file, FILE* output) {
     }
 
     if (!file) {
-        file = fs_state.current_directory;
+        file = get_ptr(fs_state.disk_header->current_directory);
         if (!file) {
             error("Current directory isn't set\n");
             return -1;
@@ -839,7 +855,7 @@ void fs_free() {
         }
         if (fs_state.err) fclose(fs_state.err);
         if (fs_state.log) fclose(fs_state.log);
-        fs_state.current_directory = NULL;
+        fs_state.disk_header->current_directory = 0;
         fs_state.disk_header = NULL;
         fs_state.is_initialized = 0;
     }

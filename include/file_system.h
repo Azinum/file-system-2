@@ -19,7 +19,11 @@ FSFILE* fs_open_dir(const char* path);
 
 FSFILE* fs_create_dir(const char* path);
 
+int fs_change_dir(const char* path);
+
 int fs_remove_file(const char* path);
+
+int fs_remove_dir(const char* path);
 
 void fs_close(FSFILE* file);
 

@@ -18,6 +18,8 @@ static struct argp_option options[] = {
   {"read",       'r', "file",      0,  "Read file"},
   {"create-dir", 'd', "file",      0,  "Create new directory"},
   {"remove",     'x', "file",      0,  "Remove regular file"},
+  {"remove-dir", 'z', "dir",       0,  "Remove directory"},
+  {"change-dir", 'v', "dir",       0,  "Change directory"},
   {"list",       'l', "file",      OPTION_ARG_OPTIONAL,  "List directory contents"},
   {"write",      'w', "file",      0,  "Write data to file"},
   {"append",     'a', "file",      0,  "Append data to file"},
@@ -89,6 +91,20 @@ error_t parse_option(int key, char* arg, struct argp_state* state) {
 
         case 'x': {
             if (fs_remove_file(arg) != 0) {
+                fs_get_error();
+            }
+        }
+            break;
+
+        case 'z': {
+            if (fs_remove_dir(arg) != 0) {
+                fs_get_error();
+            }
+        }
+            break;
+
+        case 'v': {
+            if (fs_change_dir(arg) != 0) {
                 fs_get_error();
             }
         }
