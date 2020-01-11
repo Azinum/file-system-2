@@ -471,7 +471,8 @@ int read_dir_contents(const FSFILE* file, unsigned long block_addr, FILE* output
 
     struct Data_block* block = get_ptr(block_addr);
 
-    for (unsigned long i = 0; i < block->bytes_used; i += (sizeof(unsigned long))) {
+    int count = 0;
+    for (unsigned long i = 0; i < block->bytes_used; i += (sizeof(unsigned long)), count++) {
         unsigned long addr = *(unsigned long*)(&block->data[i]);
         if (addr == 0)
             continue;
@@ -488,8 +489,7 @@ int read_dir_contents(const FSFILE* file, unsigned long block_addr, FILE* output
             else {
                 fprintf(output, "%s", file_in_dir->name);
             }
-
-            fprintf(output, "\n" NONE);
+            fprintf(output, NONE "\n");
         }
     }
 
@@ -680,7 +680,8 @@ FSFILE* fs_create_dir(const char* path) {
     FSFILE* file = allocate_file(path, T_DIR);
     if (file) {
         unsigned long addr = get_absolute_address(file);
-        fs_write(&addr, sizeof(unsigned long), file);
+        fs_write(&addr, sizeof(unsigned long), file);   // self
+        fs_write(&fs_state.disk_header->current_directory, sizeof(unsigned long), file);   // parent
         return file;
     }
     error(COLOR_MESSAGE "'%s'" NONE ": Failed to create directory\n", path);
