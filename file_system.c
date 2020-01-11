@@ -9,6 +9,7 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <time.h>
+#include <dirent.h>
 
 #include "file_system.h"
 #include "file.h"
@@ -70,13 +71,15 @@ int is_initialized() {
 }
 
 void error(char* format, ...) {
-    if (!is_initialized())
-        return;
-    fs_state.error = 1;
+    int init = is_initialized();
+    if (init) fs_state.error = 1;
+
     va_list args;
     va_start(args, format);
-
-    if (fs_state.err)
+    
+    if (!init)
+        vfprintf(stderr, format, args);
+    else if (fs_state.err)
         vfprintf(fs_state.err, format, args);
     else
         vfprintf(stderr, format, args);
@@ -529,7 +532,6 @@ int fs_init_from_disk(const char* path) {
     if (is_initialized()) {
         fs_free();
     }
-
     char* disk = read_file(path);
     if (!disk) {
         error("Failed to allocate memory for disk\n");

@@ -8,7 +8,6 @@
 char* read_file(const char* path) {
     FILE* file = fopen(path, "rb");
     if (file == NULL) {
-        fclose(file);
         return NULL;
     }
     

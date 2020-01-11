@@ -5,6 +5,7 @@
 #include <string.h>
 #include <argp.h>
 #include <unistd.h>
+#include <dirent.h>
 
 #include "file_system.h"
 
@@ -45,13 +46,14 @@ int main(int argc, char** argv) {
 
     if (argc > 1) {
         fs_init_from_disk(disk_path);
+        if (fs_get_error() != 0) return -1;
         argp_parse(&argp, argc, argv, 0, 0, &arguments);
         fs_dump_disk(disk_path);
     }
     else {
         fs_init(1024 << 4); // Create an empty disk
+        if (fs_get_error() != 0) return -1;
         fs_dump_disk(disk_path);
-        (void)fs_test;
     }
     return 0;
 }
@@ -146,8 +148,19 @@ error_t parse_option(int key, char* arg, struct argp_state* state) {
             break;
 
         case 'p': {
-            char* path = arg;
-            printf("Set path to: '%s'\n", path);
+            DIR* dir = opendir(arg);
+            if (!dir) {
+                fprintf(stderr, "Failed to set path ('%s')\n", arg);
+                return 0;
+            }
+            closedir(dir);
+            FILE* file = fopen(DATA_PATH "/.path", "w");
+            if (!file) {
+                printf("Path file doesn't exist\n");
+                return 0;
+            }
+            fprintf(file, "%s\n", arg);
+            fclose(file);
         }
             break;
 
