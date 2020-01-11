@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
         fs_dump_disk(disk_path);
     }
     else {
-        fs_init(1024 << 4); // Create an empty disk
+        fs_init(DEFAULT_DISK_SIZE); // Create an empty disk
         if (fs_get_error() != 0) return -1;
         fs_dump_disk(disk_path);
     }
