@@ -487,19 +487,9 @@ int read_dir_contents(const FSFILE* file, unsigned long block_addr, FILE* output
         if (addr == 0)
             continue;
         
-        FSFILE* file_in_dir = get_ptr(addr);
-        if (file_in_dir) {
-            fprintf(output, "%-7lu %i %7i ", addr, file_in_dir->type, file_in_dir->size);
-            if (file_in_dir->type == T_DIR) {
-                fprintf(output, COLOR_PATH "%s/", file_in_dir->name);
-            }
-            else if (file_in_dir->type == T_FILE) {
-                fprintf(output, RED "%s", file_in_dir->name);
-            }
-            else {
-                fprintf(output, "%s", file_in_dir->name);
-            }
-            fprintf(output, NONE "\n");
+        FSFILE* to_print = get_ptr(addr);
+        if (to_print) {
+            fs_print_file_info(to_print, output);
         }
     }
 
@@ -820,12 +810,19 @@ void fs_print_file_info(const FSFILE* file, FILE* output) {
     if (!file || !output) {
         return;
     }
-    
-    fprintf(output, "name: %s\n", file->name);
-    fprintf(output, "type: %i\n", file->type);
-    fprintf(output, "mode: %i\n", file->mode);
-    fprintf(output, "first block: %lu\n", file->first_block);
-    fprintf(output, "header addr: %lu\n", get_absolute_address((void*)file));
+    unsigned long addr = get_absolute_address((void*)file);
+
+    fprintf(output, "%-7lu %i %7i ", addr, file->type, file->size);
+    if (file->type == T_DIR) {
+        fprintf(output, COLOR_PATH "%s/", file->name);
+    }
+    else if (file->type == T_FILE) {
+        fprintf(output, COLOR_FILE "%s", file->name);
+    }
+    else {
+        fprintf(output, "%s", file->name);
+    }
+    fprintf(output, NONE "\n");
 }
 
 int fs_read(const FSFILE* file, FILE* output) {
