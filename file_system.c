@@ -148,7 +148,7 @@ static void* allocate(unsigned long size) {
                 break;
         }
     }
-
+    error("Failed to allocate memory. Disk is full\n");
     return NULL;
 }
 
