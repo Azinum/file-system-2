@@ -54,12 +54,13 @@ static int deallocate_file(FSFILE* file);
 static int deallocate_blocks(unsigned long addr);
 static int remove_file(const char* path, int file_type);
 static int free_block(unsigned long block_addr, unsigned long block_size, char verify_block_type);
-static FSFILE* find_file(unsigned long id, unsigned long* position, unsigned long* empty_slot, int file_type);
+static FSFILE* find_file(FSFILE* dir, unsigned long id, unsigned long* position, unsigned long* empty_slot, int file_type);
 static struct Data_block* read_block(unsigned long block_addr);
 static struct Data_block* get_last_block(struct Data_block* block);
 static void write_to_blocks(FSFILE* file, const void* data, unsigned long size, unsigned long* bytes_written, unsigned long block_addr);
 static void read_file_contents(unsigned long block_addr, FILE* output);
 static int read_dir_contents(const FSFILE* file, unsigned long block_addr, FILE* output);
+static FSFILE* get_path_dir(const char* path);
 static int count_blocks(struct Data_block* block);
 static int get_size_of_blocks(unsigned long block_addr);
 
@@ -216,7 +217,7 @@ FSFILE* allocate_file(const char* path, int file_type) {
 
     unsigned long id = hash2(path) + file_type;
     unsigned long empty_slot_addr = 0;
-    if ((find_file(id, NULL, &empty_slot_addr, file_type))) {
+    if ((find_file(NULL, id, NULL, &empty_slot_addr, file_type))) {
         error(COLOR_MESSAGE "'%s'" NONE " File already exists\n", path);
         return NULL;
     }
@@ -269,16 +270,13 @@ int deallocate_blocks(unsigned long addr) {
     struct Data_block* block = get_ptr(addr);
     unsigned long next = block->next;
 
-    // flush(addr, addr + TOTAL_BLOCK_SIZE);
     int err = free_block(addr, TOTAL_BLOCK_SIZE, BLOCK_USED);
     if (err != 0) {
         return err;
     }
-    // block->block_type = BLOCK_FREE;
     
     if (can_access_address(next)) {
         deallocate_blocks(next);
-        // block->next = 0;
     }
     return 0;
 }
@@ -287,7 +285,7 @@ int deallocate_blocks(unsigned long addr) {
 int remove_file(const char* path, int file_type) {
     unsigned long id = hash2(path) + file_type;
     unsigned long location = 0;
-    FSFILE* file = find_file(id, &location, NULL, file_type);
+    FSFILE* file = find_file(NULL, id, &location, NULL, file_type);
     if (!file || !location) {
         error(COLOR_MESSAGE "'%s'" NONE " No such file or directory\n", path);
         return -1;
@@ -331,15 +329,17 @@ int free_block(unsigned long block_addr, unsigned long block_size, char verify_b
     flush(block_addr, block_addr + block_size);
     return 0;
 }
- 
-FSFILE* find_file(unsigned long id, unsigned long* location, unsigned long* empty_slot, int file_type) {
+
+FSFILE* find_file(FSFILE* dir, unsigned long id, unsigned long* location, unsigned long* empty_slot, int file_type) {
     if (!is_initialized()) {
         return NULL;
     }
 
-    FSFILE* dir = get_ptr(fs_state.disk_header->current_directory);
+    if (!dir)
+        dir = get_ptr(fs_state.disk_header->current_directory);
 
     if (!dir) {
+        fslog("[Warning] Directory is undefined\n");
         return NULL;
     }
 
@@ -509,6 +509,35 @@ int read_dir_contents(const FSFILE* file, unsigned long block_addr, FILE* output
     return read_dir_contents(file, block->next, output);;
 }
 
+// Get relative path directory
+FSFILE* get_path_dir(const char* path) {
+    FSFILE* dir = get_ptr(fs_state.disk_header->current_directory);
+    
+    if (!dir) {
+        return NULL;
+    }
+
+    char file_name[FILE_NAME_SIZE] = {0};
+    int index = 0;
+
+    unsigned long path_length = strlen(path);
+    for (int i = 0; i < path_length + 1 && index < FILE_NAME_SIZE; i++) {
+
+        if (path[i] == '/' || i + 0 == path_length) {
+            unsigned long id = hash(file_name, index) + T_DIR;
+            dir = find_file(dir, id, NULL, NULL, T_DIR);
+            if (!dir) {
+                return NULL;
+            }
+            index = 0;
+            continue;
+        }
+        file_name[index++] = path[i];
+    }
+
+    return dir;
+}
+
 int count_blocks(struct Data_block* block) {
     if (!block) {
         return 0;
@@ -613,13 +642,14 @@ FSFILE* fs_open(const char* path, const char* mode) {
         return NULL;
     }
     FSFILE* file = NULL;
+
     int file_type = T_FILE;
     unsigned long id = hash2(path) + file_type;
 
     switch (*mode) {
         case 'w': {
 
-            if ((file = find_file(id, NULL, NULL, file_type))) {
+            if ((file = find_file(NULL, id, NULL, NULL, file_type))) {
                 if (file->type == T_FILE) {
                     deallocate_file(file);
                     file->mode = MODE_WRITE;
@@ -639,7 +669,7 @@ FSFILE* fs_open(const char* path, const char* mode) {
             break;
 
         case 'r': {
-            FSFILE* file = find_file(id, NULL, NULL, file_type);
+            FSFILE* file = find_file(NULL, id, NULL, NULL, file_type);
             if (!file) {
                 error(COLOR_MESSAGE "'%s'" NONE ": No such file\n", path);
                 return NULL;
@@ -651,7 +681,7 @@ FSFILE* fs_open(const char* path, const char* mode) {
             break;
 
         case 'a': {
-            FSFILE* file = find_file(id, NULL, NULL, file_type);
+            FSFILE* file = find_file(NULL, id, NULL, NULL, file_type);
             if (!file) {
                 error(COLOR_MESSAGE "'%s'" NONE ": No such file\n", path);
                 return NULL;
@@ -674,7 +704,7 @@ FSFILE* fs_open_dir(const char* path) {
     }
     int file_type = T_DIR;
     unsigned long id = hash2(path) + file_type;
-    FSFILE* file = find_file(id, NULL, NULL, file_type);
+    FSFILE* file = find_file(NULL, id, NULL, NULL, file_type);
     if (!file) {
         error(COLOR_MESSAGE "'%s'" NONE ": No such directory\n", path);
         return NULL;
@@ -703,8 +733,10 @@ int fs_change_dir(const char* path) {
     if (!is_initialized()) {
         return -1;
     }
-    FSFILE* dir = fs_open_dir(path);
+
+    FSFILE* dir = get_path_dir(path);
     if (!dir) {
+        error(COLOR_PATH "'%s'" NONE " Invalid path\n", path);
         return -1;
     }
     fs_state.disk_header->current_directory = get_absolute_address(dir);
@@ -905,7 +937,7 @@ void fs_test() {
     }
 
     {
-        FSFILE* file = find_file(hash2(name), NULL, NULL, T_FILE);
+        FSFILE* file = find_file(NULL, hash2(name), NULL, NULL, T_FILE);
         assert(file != NULL);
     }
     {
