@@ -59,7 +59,7 @@ static struct Data_block* read_block(unsigned long block_addr);
 static struct Data_block* get_last_block(struct Data_block* block);
 static void write_to_blocks(FSFILE* file, const void* data, unsigned long size, unsigned long* bytes_written, unsigned long block_addr);
 static void read_file_contents(unsigned long block_addr, FILE* output);
-static int read_dir_contents(const FSFILE* file, unsigned long block_addr, FILE* output);
+static int read_dir_contents(const FSFILE* file, unsigned long block_addr, int iteration, FILE* output);
 static FSFILE* get_path_dir(const char* path);
 static int count_blocks(struct Data_block* block);
 static int get_size_of_blocks(unsigned long block_addr);
@@ -159,7 +159,7 @@ int initialize(struct FS_state* state, unsigned long disk_size) {
     state->is_initialized = 1;
     fs_state.error = 0;
     state->err = NULL;
-    state->log = NULL; //fopen("log/disk_events.log", "ab");
+    state->log = NULL;
 
     state->disk_header = (struct FS_disk_header*)state->disk;
     state->disk_header->magic = HEADER_MAGIC;
@@ -464,7 +464,7 @@ void read_file_contents(unsigned long block_addr, FILE* output) {
     read_file_contents(block->next, output);
 }
 
-int read_dir_contents(const FSFILE* file, unsigned long block_addr, FILE* output) {
+int read_dir_contents(const FSFILE* file, unsigned long block_addr, int iteration, FILE* output) {
     if (!can_access_address(block_addr)) {
         return -1;
     }
@@ -473,28 +473,45 @@ int read_dir_contents(const FSFILE* file, unsigned long block_addr, FILE* output
     }
 
     if (file->type != T_DIR) {
-        error(COLOR_MESSAGE "'%s'" NONE ": File is not a directory\n", file->name);
+        error(COLOR_MESSAGE "'%s'" NONE ": Not a directory\n", file->name);
         return -1;
     }
 
     struct Data_block* block = get_ptr(block_addr);
+    unsigned long* addr = (unsigned long*)block->data;
 
-    int count = 0;
-    for (unsigned long i = 0; i < block->bytes_used; i += (sizeof(unsigned long)), count++) {
-        unsigned long addr = *(unsigned long*)(&block->data[i]);
-        if (addr == 0)
+    for (int i = 0; i < block->bytes_used / (sizeof(unsigned long)); i++, iteration++) {
+        if (addr[i] == 0)
             continue;
         
-        FSFILE* to_print = get_ptr(addr);
+        FSFILE* to_print = get_ptr(addr[i]);
         if (to_print) {
-            fs_print_file_info(to_print, output);
+            fprintf(output, "%-7lu %i %7i ", addr[i], to_print->type, to_print->size);
+
+            if (iteration == 0) {
+                printf(COLOR_PATH ".\n" NONE);
+                continue;
+            }
+            else if (iteration == 1) {
+                printf(COLOR_PATH "..\n" NONE);
+                continue;
+            }
+
+            if (to_print->type == T_DIR)
+                fprintf(output, COLOR_PATH "%s/" NONE, to_print->name);
+            else if (to_print->type == T_FILE)
+                fprintf(output, COLOR_FILE "%s" NONE, to_print->name);
+            else
+                fprintf(output, "%s", to_print->name);
+
+            fprintf(output, "\n");
         }
     }
 
     if (block->next == 0)
         return 0;
     
-    return read_dir_contents(file, block->next, output);;
+    return read_dir_contents(file, block->next, iteration, output);
 }
 
 // Get relative path directory
@@ -718,7 +735,8 @@ FSFILE* fs_create_dir(const char* path) {
     if (file) {
         unsigned long addr = get_absolute_address(file);
         fs_write(&addr, sizeof(unsigned long), file);   // self
-        fs_write(&fs_state.disk_header->current_directory, sizeof(unsigned long), file);   // parent
+        unsigned long current = fs_state.disk_header->current_directory;
+        fs_write(current ? &current : &addr,  sizeof(unsigned long), file);   // parent
         return file;
     }
     error(COLOR_MESSAGE "'%s'" NONE ": Failed to create directory\n", path);
@@ -861,7 +879,7 @@ int fs_list(const FSFILE* file, FILE* output) {
         }
     }
 
-    return read_dir_contents(file, file->first_block, output);
+    return read_dir_contents(file, file->first_block, 0, output);
 }
 
 void fs_dump_disk(const char* path) {
@@ -895,6 +913,8 @@ int fs_get_error() {
 }
 
 void fs_free() {
+    !fs_state.is_initialized ? error("Failed to free state (it's already been free'd)\n") : (void)0;
+
     if (fs_state.is_initialized) {
         if (fs_state.disk) {
             free(fs_state.disk);
@@ -902,7 +922,6 @@ void fs_free() {
         }
         if (fs_state.err) fclose(fs_state.err);
         if (fs_state.log) fclose(fs_state.log);
-        fs_state.disk_header->current_directory = 0;
         fs_state.disk_header = NULL;
         fs_state.is_initialized = 0;
     }

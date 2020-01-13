@@ -159,6 +159,7 @@ error_t parse_option(int key, char* arg, struct argp_state* state) {
             for (int i = 0; i < ARRAY_SIZE(options) - 1; i++) {
                 printf("--%s -%c ", options[i].name, options[i].key);
             }
+            printf("--help -? ");
             printf("\n");
         }
             break;
