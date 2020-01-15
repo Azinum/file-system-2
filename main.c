@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <dirent.h>
 
-#include "file_system.h"
+#include "fs2.h"
 
 static char args_doc[] = "";
 static char doc[] = "File System 2 (fs2) - file system emulator";

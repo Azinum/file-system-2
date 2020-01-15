@@ -1,46 +1,60 @@
 // file_system.h
 
-#ifndef _FILE_SYSTEM_H
-#define _FILE_SYSTEM_H
+#ifndef _FILE_SYSTEM
+#define _FILE_SYSTEM
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <assert.h>
+#include <limits.h>
+#include <stdarg.h>
+#include <time.h>
+#include <dirent.h>
 
 #include "config.h"
+#include "hash.h"
 
-#define ARRAY_SIZE(arr) ((sizeof(arr)) / (sizeof(arr[0])))
+#define HEADER_MAGIC 0xbeefaaaa
+
+struct FS_disk_header {
+    int magic;
+    unsigned long disk_size;
+    unsigned long root_directory;
+    unsigned long current_directory;
+};
+
+struct FS_state {
+    char* disk;
+    int is_initialized;
+    int error;
+    FILE* err;
+    FILE* log;
+    struct FS_disk_header* disk_header;
+};
 
 typedef struct FSFILE FSFILE;
 
-int fs_init(unsigned long disk_size);
+int is_initialized();
 
-int fs_init_from_disk(const char* path);
+void error(char* format, ...);
 
-FSFILE* fs_open(const char* path, const char* mode);
+void fslog(char* format, ...);
 
-FSFILE* fs_open_dir(const char* path);
+struct FS_state* get_state();
 
-FSFILE* fs_create_dir(const char* path);
+FSFILE* find_file(FSFILE* dir, unsigned long id, unsigned long* position, unsigned long* empty_slot);
 
-int fs_change_dir(const char* path);
+int write_data(const void* data, unsigned long size, FSFILE* file);
 
-int fs_remove_file(const char* path);
+void write_to_blocks(FSFILE* file, const void* data, unsigned long size, unsigned long* bytes_written, unsigned long block_addr);
 
-int fs_remove_dir(const char* path);
+// Get pointer from address/index on disk
+void* get_ptr(unsigned long address);
 
-void fs_close(FSFILE* file);
+unsigned long get_absolute_address(void* address);
 
-int fs_write(const void* data, unsigned long size, FSFILE* file);
+int can_access_address(unsigned long address);
 
-void fs_print_file_info(const FSFILE* file, FILE* output);
-
-int fs_read(const FSFILE* file, FILE* output);
-
-int fs_list(const FSFILE* file, FILE* output);
-
-void fs_dump_disk(const char* path);
-
-int fs_get_error();
-
-void fs_free();
-
-void fs_test();
-
-#endif  // _FILE_SYSTEM_H
+#endif

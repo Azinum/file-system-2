@@ -23,4 +23,12 @@ struct Data_block {
 
 void print_block_info(struct Data_block* block, FILE* output);
 
+int count_blocks(struct Data_block* block);
+
+int get_size_of_blocks(unsigned long block_addr);
+
+struct Data_block* read_block(unsigned long block_addr);
+
+struct Data_block* get_last_block(struct Data_block* block);
+
 #endif // _BLOCK_H
