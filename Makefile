@@ -20,9 +20,8 @@ DATA_PATH=$(INSTALL_SHARE)/$(PROGRAM_NAME)
 
 all: build_local generate_sample_disk
 
-# Add all necessary files
 prepare:
-	mkdir -p log
+	
 
 
 install: build_release
