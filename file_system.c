@@ -51,7 +51,7 @@ struct FS_state* get_state() {
 	return &fs_state;
 }
 
-FSFILE* find_file(FSFILE* dir, unsigned long id, unsigned long* location, unsigned long* empty_slot) {
+struct FSFILE* find_file(struct FSFILE* dir, unsigned long id, unsigned long* location, unsigned long* empty_slot) {
     if (!is_initialized()) {
         return NULL;
     }
@@ -70,7 +70,7 @@ FSFILE* find_file(FSFILE* dir, unsigned long id, unsigned long* location, unsign
     if (next == 0)
         return NULL;
 
-    FSFILE* file = NULL;
+    struct FSFILE* file = NULL;
     while ((block = read_block(next)) != NULL) {
         for (unsigned long i = 0; i < block->bytes_used; i += (sizeof(unsigned long))) {
             unsigned long addr = *(unsigned long*)(&block->data[i]);
@@ -97,7 +97,7 @@ FSFILE* find_file(FSFILE* dir, unsigned long id, unsigned long* location, unsign
     return NULL;
 }
 
-int write_data(const void* data, unsigned long size, FSFILE* file) {
+int write_data(const void* data, unsigned long size, struct FSFILE* file) {
     if (!file || !is_initialized()) {
         return -1;
     }
@@ -155,7 +155,7 @@ int write_data(const void* data, unsigned long size, FSFILE* file) {
 // - When bytes_used != 0
 // - When the size is less than BLOCK_SIZE - bytes_used
 // - When the size is greater than BLOCK_SIZE - bytes_used but is less than BLOCK_SIZE
-void write_to_blocks(FSFILE* file, const void* data, unsigned long size, unsigned long* bytes_written, unsigned long block_addr) {
+void write_to_blocks(struct FSFILE* file, const void* data, unsigned long size, unsigned long* bytes_written, unsigned long block_addr) {
     if (size == 0)
         return;
 

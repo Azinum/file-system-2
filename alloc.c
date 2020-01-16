@@ -57,14 +57,14 @@ void* allocate(unsigned long size) {
     return NULL;
 }
 
-FSFILE* allocate_file(const char* path, int file_type) {
+struct FSFILE* allocate_file(const char* path, int file_type) {
     if (!is_initialized()) {
         return NULL;
     }
 
     assert((file_type > T_NONE) && (file_type < T_END));
 
-    FSFILE* dir = get_ptr(get_state()->disk_header->current_directory);
+    struct FSFILE* dir = get_ptr(get_state()->disk_header->current_directory);
 
     unsigned long id = hash2(path);
     unsigned long empty_slot_addr = 0;
@@ -73,7 +73,7 @@ FSFILE* allocate_file(const char* path, int file_type) {
         return NULL;
     }
 
-    FSFILE* file = allocate(TOTAL_FILE_HEADER_SIZE);
+    struct FSFILE* file = allocate(TOTAL_FILE_HEADER_SIZE);
 
     if (file) {
         file->block_type = BLOCK_FILE_HEADER;
@@ -118,7 +118,7 @@ struct Data_block* allocate_blocks(int count) {
     return block;
 }
 
-int deallocate_file(FSFILE* file) {
+int deallocate_file(struct FSFILE* file) {
     if (!is_initialized() || !file) {
         return -1;
     }

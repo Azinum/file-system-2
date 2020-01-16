@@ -34,8 +34,6 @@ struct FS_state {
     struct FS_disk_header* disk_header;
 };
 
-typedef struct FSFILE FSFILE;
-
 int is_initialized();
 
 void error(char* format, ...);
@@ -44,11 +42,11 @@ void fslog(char* format, ...);
 
 struct FS_state* get_state();
 
-FSFILE* find_file(FSFILE* dir, unsigned long id, unsigned long* position, unsigned long* empty_slot);
+struct FSFILE* find_file(struct FSFILE* dir, unsigned long id, unsigned long* position, unsigned long* empty_slot);
 
-int write_data(const void* data, unsigned long size, FSFILE* file);
+int write_data(const void* data, unsigned long size, struct FSFILE* file);
 
-void write_to_blocks(FSFILE* file, const void* data, unsigned long size, unsigned long* bytes_written, unsigned long block_addr);
+void write_to_blocks(struct FSFILE* file, const void* data, unsigned long size, unsigned long* bytes_written, unsigned long block_addr);
 
 // Get pointer from address/index on disk
 void* get_ptr(unsigned long address);
