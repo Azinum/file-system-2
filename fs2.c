@@ -11,13 +11,12 @@
 #include "read.h"
 #include "block.h"
 #include "alloc.h"
+#include "dir.h"
 
 static int initialize(struct FS_state* state, unsigned long disk_size);
 
 static int remove_file(const char* path, int file_type);
 static void read_file_contents(unsigned long block_addr, FILE* output);
-static int read_dir_contents(const FSFILE* file, unsigned long block_addr, int iteration, FILE* output);
-static FSFILE* get_path_dir(const char* path);
 
 int initialize(struct FS_state* state, unsigned long disk_size) {
     if (!state) {
@@ -93,90 +92,6 @@ void read_file_contents(unsigned long block_addr, FILE* output) {
         return;
     }
     read_file_contents(block->next, output);
-}
-
-int read_dir_contents(const FSFILE* file, unsigned long block_addr, int iteration, FILE* output) {
-    if (!can_access_address(block_addr)) {
-        return -1;
-    }
-    if (!output || !is_initialized()) {
-        return -1;
-    }
-
-    if (file->type != T_DIR) {
-        error(COLOR_MESSAGE "'%s'" NONE ": Not a directory\n", file->name);
-        return -1;
-    }
-
-    struct Data_block* block = get_ptr(block_addr);
-    unsigned long* addr = (unsigned long*)block->data;
-
-    for (int i = 0; i < block->bytes_used / (sizeof(unsigned long)); i++, iteration++) {
-        if (addr[i] == 0)
-            continue;
-        
-        FSFILE* to_print = get_ptr(addr[i]);
-        if (to_print) {
-            fprintf(output, "%-7lu %i %7i ", addr[i], to_print->type, to_print->size);
-
-            if (iteration == 0) {
-                printf(COLOR_PATH ".\n" NONE);
-                continue;
-            }
-            else if (iteration == 1) {
-                printf(COLOR_PATH "..\n" NONE);
-                continue;
-            }
-
-            if (to_print->type == T_DIR)
-                fprintf(output, COLOR_PATH "%s/" NONE, to_print->name);
-            else if (to_print->type == T_FILE)
-                fprintf(output, COLOR_FILE "%s" NONE, to_print->name);
-            else
-                fprintf(output, "%s", to_print->name);
-            
-            fprintf(output, "\n");
-        }
-    }
-
-    if (block->next == 0)
-        return 0;
-    
-    return read_dir_contents(file, block->next, iteration, output);
-}
-
-// Get relative path directory
-FSFILE* get_path_dir(const char* path) {
-    FSFILE* dir = get_ptr(get_state()->disk_header->current_directory);
-    
-    if (!dir) {
-        return NULL;
-    }
-
-    char file_name[FILE_NAME_SIZE] = {0};
-    int index = 0;
-
-    unsigned long path_length = strlen(path);
-    for (int i = 0; i < path_length+1 && index < FILE_NAME_SIZE; i++) {
-        if (path[i] == '/' || i == path_length) {
-            if (index == 0 && i == path_length) {
-                return dir;
-            }
-            unsigned long id = hash(file_name, index);
-            dir = find_file(dir, id, NULL, NULL);
-            if (!dir) {
-                return NULL;
-            }
-            if (dir->type != T_DIR) {
-                return NULL;
-            }
-            index = 0;
-            continue;
-        }
-        file_name[index++] = path[i];
-    }
-
-    return dir;
 }
 
 

@@ -4,6 +4,7 @@
 #include "file.h"
 #include "block.h"
 #include "alloc.h"
+#include "dir.h"
 
 static struct FS_state fs_state;
 
