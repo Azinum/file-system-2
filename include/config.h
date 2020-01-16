@@ -37,5 +37,7 @@
 #define COLOR_FILE		RED
 #define COLOR_NUMBERS DARK_BLUE
 
+// TODO(lucas): Use this type at all places needed
+#define addr_t unsigned long
 
 #endif

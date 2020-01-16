@@ -5,6 +5,24 @@
 #include "file.h"
 #include "dir.h"
 
+typedef struct FSFILE FSFILE;
+
+static struct FSFILE* get_parent_dir(const FSFILE* dir);
+
+struct FSFILE* get_parent_dir(const FSFILE* dir) {
+	assert(dir != NULL);
+	struct Data_block* block = read_block(dir->first_block);
+	if (!block) {
+		error(COLOR_MESSAGE "'%s'" NONE ": Directory is empty\n", dir->name);
+		return NULL;
+	}
+	if (block->bytes_used >= (2 * sizeof(addr_t))) {
+		addr_t* addr = (addr_t*)block->data;
+		return get_ptr(addr[1]);
+	}
+	return NULL;
+}
+
 int read_dir_contents(const struct FSFILE* file, unsigned long block_addr, int iteration, FILE* output) {
     if (!can_access_address(block_addr)) {
         return -1;
@@ -76,8 +94,8 @@ struct FSFILE* get_path_dir(const char* path) {
     		// '..' The user wants to access the parent directory
     		// Read the second file of the directory
     		if (path[i + 1] == '.') {
-
-    			i++;
+    			dir = get_parent_dir(dir);
+    			i += 2;
     			continue;
     		}
     		dir = get_ptr(get_state()->disk_header->current_directory);
