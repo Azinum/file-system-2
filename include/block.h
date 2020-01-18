@@ -6,10 +6,13 @@
 #define BLOCK_SIZE 32
 
 enum Block_types {
+	BLOCK_NONE,
     BLOCK_USED = 1,
     BLOCK_FREE,
     BLOCK_FILE_HEADER,
-    BLOCK_FILE_HEADER_FREE
+    BLOCK_FILE_HEADER_FREE,
+    
+    BLOCK_TYPES_COUNT
 };
 
 struct Data_block {

@@ -20,6 +20,7 @@ struct FSFILE* get_parent_dir(const FSFILE* dir) {
 		addr_t* addr = (addr_t*)block->data;
 		return get_ptr(addr[1]);
 	}
+	error(COLOR_MESSAGE "'%s'" NONE ": Directory is empty\n", dir->name);
 	return NULL;
 }
 
