@@ -104,6 +104,7 @@ int write_data(const void* data, unsigned long size, struct FSFILE* file) {
     }
 
     if ((MODE_WRITE != (file->mode & MODE_WRITE) && MODE_APPEND != (file->mode & MODE_APPEND)) && file->type != T_DIR) {
+        error(COLOR_MESSAGE "'%s'" NONE ": Failed to write data, file mode (write/append) isn't set\n");
         return -1;
     }
 

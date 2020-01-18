@@ -23,13 +23,13 @@ int fs_change_dir(const char* path);
 
 int fs_remove_file(const char* path);
 
-int fs_remove_dir(const char* path);
-
 void fs_close(FSFILE* file);
 
 int fs_write(const void* data, unsigned long size, FSFILE* file);
 
 void fs_print_file_info(const FSFILE* file, FILE* output);
+
+int fs_pwd(FILE* output);
 
 int fs_read(const FSFILE* file, FILE* output);
 

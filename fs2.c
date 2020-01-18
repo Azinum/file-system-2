@@ -242,11 +242,14 @@ int fs_change_dir(const char* path) {
         return -1;
     }
 
-    FSFILE* dir = get_path_dir(path);
+    FSFILE* dir = get_path_dir(path, NULL);
     if (!dir) {
         error(COLOR_PATH "'%s'" NONE " Invalid path\n", path);
         return -1;
     }
+    if (!is_dir(dir))
+    	return -1;
+
     get_state()->disk_header->current_directory = get_absolute_address(dir);
     return 0;
 }
@@ -254,10 +257,6 @@ int fs_change_dir(const char* path) {
 
 int fs_remove_file(const char* path) {
     return remove_file(path, T_FILE);
-}
-
-int fs_remove_dir(const char* path) {
-    return remove_file(path, T_DIR);
 }
 
 void fs_close(FSFILE* file) {
@@ -292,6 +291,10 @@ void fs_print_file_info(const FSFILE* file, FILE* output) {
     fprintf(output, NONE "\n");
 }
 
+int fs_pwd(FILE* output) {
+	return print_working_directory(output);
+}
+
 int fs_read(const FSFILE* file, FILE* output) {
     if (!file || !output || !is_initialized())
         return 0;
@@ -312,6 +315,8 @@ int fs_list(const FSFILE* file, FILE* output) {
     if (!output || !is_initialized()) {
         return -1;
     }
+
+    fs_pwd(output);
 
     if (!file) {
         file = get_ptr(get_state()->disk_header->current_directory);
@@ -342,8 +347,8 @@ int fs_get_error() {
         return -1;
     }
     if (!get_state()->error)
-        return 0;       // Okay, no error
-    get_state()->error = 0; // Error has occured, reset it so that the error is not persistent upon next get_error() call
+        return 0;       	// Okay, no error
+    get_state()->error = 0; // Error has occured, reset it
     if (!get_state()->err)
         return -1;
     char* contents = read_open_file(get_state()->err);
