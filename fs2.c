@@ -54,6 +54,10 @@ int remove_file(const char* path, int file_type) {
         error("Can't remove this directory\n");
         return -1;
     }
+	if (file->type == T_DIR && !can_remove_dir(file)) {
+		error(COLOR_MESSAGE "'%s/'" NONE ": Directory is not empty\n");
+		return -1;
+	}
     if (deallocate_file(file) != 0) {
         return -1;
     }

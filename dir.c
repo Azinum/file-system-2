@@ -161,3 +161,16 @@ int print_working_directory(FILE* output) {
 int is_dir(const struct FSFILE* file) {
 	return file->type == T_DIR;
 }
+
+int can_remove_dir(const struct FSFILE* file) {
+	assert(file != NULL);
+
+	if (!is_dir(file)) {
+		error(COLOR_MESSAGE "'%s'" NONE ": File is not a directory\n", file->name);
+		return 0;
+	}
+
+	struct Data_block* block = read_block(file->first_block);
+	assert(block != NULL);	// Directories can't be empty
+	return block->bytes_used == (sizeof(addr_t) * 2);
+}

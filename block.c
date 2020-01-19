@@ -59,6 +59,9 @@ int get_size_of_blocks(unsigned long block_addr) {
 }
 
 struct Data_block* read_block(unsigned long block_addr) {
+	if (!can_access_address(block_addr))
+		return NULL;
+	
     struct Data_block* block = (struct Data_block*)get_ptr(block_addr);
     if (!block) {
         return NULL;

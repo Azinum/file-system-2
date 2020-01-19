@@ -13,4 +13,6 @@ int print_working_directory(FILE* output);
 
 int is_dir(const struct FSFILE* file);
 
+int can_remove_dir(const struct FSFILE* file);
+
 #endif
