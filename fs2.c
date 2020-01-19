@@ -12,6 +12,7 @@
 #include "block.h"
 #include "alloc.h"
 #include "dir.h"
+#include "error.h"
 
 static int initialize(struct FS_state* state, unsigned long disk_size);
 
@@ -23,8 +24,6 @@ int initialize(struct FS_state* state, unsigned long disk_size) {
         return -1;
     }
     state->is_initialized = 1;
-    state->error = 0;
-    state->err = NULL;
     state->log = NULL;
 
     state->disk_header = (struct FS_disk_header*)state->disk;
@@ -124,8 +123,6 @@ int fs_init_from_disk(const char* path) {
         return -1;
     }
     get_state()->is_initialized = 1;
-    get_state()->error = 0;
-    get_state()->err = NULL; //fopen("./log/error.log", "w+");
     get_state()->log = fopen(DATA_PATH "/log/disk_events.log", "ab");
 
     get_state()->disk = disk;
@@ -346,17 +343,7 @@ int fs_get_error() {
         error("%s\n", "File system is not initialized");
         return -1;
     }
-    if (!get_state()->error)
-        return 0;       	// Okay, no error
-    get_state()->error = 0; // Error has occured, reset it
-    if (!get_state()->err)
-        return -1;
-    char* contents = read_open_file(get_state()->err);
-    if (contents) {
-        printf("%s", contents);
-        free(contents);
-    }
-    return -1;
+    return get_error(stdout);
 }
 
 void fs_free() {
@@ -367,7 +354,6 @@ void fs_free() {
             free(get_state()->disk);
             get_state()->disk = NULL;
         }
-        if (get_state()->err) fclose(get_state()->err);
         if (get_state()->log) fclose(get_state()->log);
         get_state()->disk_header = NULL;
         get_state()->is_initialized = 0;

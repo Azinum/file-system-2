@@ -12,21 +12,6 @@ int is_initialized() {
     return get_state()->is_initialized;
 }
 
-void error(char* format, ...) {
-    int init = is_initialized();
-    if (init) get_state()->error = 1;
-
-    va_list args;
-    va_start(args, format);
-    
-    if (get_state()->err && init)
-        vfprintf(get_state()->err, format, args);
-    else
-        vfprintf(stderr, format, args);
-    
-    va_end(args);
-}
-
 void fslog(char* format, ...) {
     if (!is_initialized())
         return;

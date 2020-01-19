@@ -29,7 +29,6 @@ struct FS_state {
     char* disk;
     int is_initialized;
     int error;
-    FILE* err;
     FILE* log;
     struct FS_disk_header* disk_header;
 };
