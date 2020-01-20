@@ -40,13 +40,13 @@ int initialize(struct FS_state* state, unsigned long disk_size) {
 
 int remove_file(const char* path, int file_type) {
     unsigned long id = hash2(path);
-    unsigned long location = 0;
+    addr_t location = 0;
     FSFILE* file = find_file(NULL, id, &location, NULL);
     if (!file || !location) {
         error(COLOR_MESSAGE "'%s'" NONE " No such file or directory\n", path);
         return -1;
     }
-    unsigned long* file_addr = get_ptr(location);
+    addr_t* file_addr = get_ptr(location);
     assert(get_absolute_address(file) == *file_addr);
     
     // To make sure you don't delete the directory you are in
@@ -69,7 +69,7 @@ int remove_file(const char* path, int file_type) {
     if (free_block(*file_addr, TOTAL_FILE_HEADER_SIZE, BLOCK_FILE_HEADER) != 0) {
         return -1;
     }
-    fslog("Removed file '%s' (%lu)\n", path, *file_addr);
+    fslog("Removed file '%s' (addr: %lu)\n", path, *file_addr);
     *file_addr = 0;
     return 0;
 }

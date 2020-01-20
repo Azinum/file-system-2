@@ -52,14 +52,14 @@ struct FSFILE* find_file(struct FSFILE* dir, unsigned long id, unsigned long* lo
 
     struct Data_block* block = NULL;
 
-    unsigned long next = dir->first_block;
+    addr_t next = dir->first_block;
     if (next == 0)
         return NULL;
 
     struct FSFILE* file = NULL;
     while ((block = read_block(next)) != NULL) {
         for (unsigned long i = 0; i < block->bytes_used; i += (sizeof(unsigned long))) {
-            unsigned long addr = *(unsigned long*)(&block->data[i]);
+            addr_t addr = *(unsigned long*)(&block->data[i]);
             if (addr == 0) {
                 if (empty_slot) *empty_slot = get_absolute_address(&block->data[i]);
                 continue;

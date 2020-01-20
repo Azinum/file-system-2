@@ -15,4 +15,6 @@ int is_dir(const struct FSFILE* file);
 
 int can_remove_dir(const struct FSFILE* file);
 
+int fill_empty_file_slots(struct Data_block* block, int from_index);
+
 #endif
