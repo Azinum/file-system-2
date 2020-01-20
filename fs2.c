@@ -12,6 +12,7 @@
 #include "block.h"
 #include "alloc.h"
 #include "dir.h"
+#include "error.h"
 
 static int initialize(struct FS_state* state, unsigned long disk_size);
 
@@ -23,8 +24,6 @@ int initialize(struct FS_state* state, unsigned long disk_size) {
         return -1;
     }
     state->is_initialized = 1;
-    state->error = 0;
-    state->err = NULL;
     state->log = NULL;
 
     state->disk_header = (struct FS_disk_header*)state->disk;
@@ -41,13 +40,13 @@ int initialize(struct FS_state* state, unsigned long disk_size) {
 
 int remove_file(const char* path, int file_type) {
     unsigned long id = hash2(path);
-    unsigned long location = 0;
+    addr_t location = 0;
     FSFILE* file = find_file(NULL, id, &location, NULL);
     if (!file || !location) {
         error(COLOR_MESSAGE "'%s'" NONE " No such file or directory\n", path);
         return -1;
     }
-    unsigned long* file_addr = get_ptr(location);
+    addr_t* file_addr = get_ptr(location);
     assert(get_absolute_address(file) == *file_addr);
     
     // To make sure you don't delete the directory you are in
@@ -55,6 +54,10 @@ int remove_file(const char* path, int file_type) {
         error("Can't remove this directory\n");
         return -1;
     }
+	if (file->type == T_DIR && !can_remove_dir(file)) {
+		error(COLOR_MESSAGE "'%s/'" NONE ": Directory is not empty\n");
+		return -1;
+	}
     if (deallocate_file(file) != 0) {
         return -1;
     }
@@ -66,7 +69,7 @@ int remove_file(const char* path, int file_type) {
     if (free_block(*file_addr, TOTAL_FILE_HEADER_SIZE, BLOCK_FILE_HEADER) != 0) {
         return -1;
     }
-    fslog("Removed file '%s' (%lu)\n", path, *file_addr);
+    fslog("Removed file '%s' (addr: %lu)\n", path, *file_addr);
     *file_addr = 0;
     return 0;
 }
@@ -124,8 +127,6 @@ int fs_init_from_disk(const char* path) {
         return -1;
     }
     get_state()->is_initialized = 1;
-    get_state()->error = 0;
-    get_state()->err = NULL; //fopen("./log/error.log", "w+");
     get_state()->log = fopen(DATA_PATH "/log/disk_events.log", "ab");
 
     get_state()->disk = disk;
@@ -242,11 +243,14 @@ int fs_change_dir(const char* path) {
         return -1;
     }
 
-    FSFILE* dir = get_path_dir(path);
+    FSFILE* dir = get_path_dir(path, NULL);
     if (!dir) {
         error(COLOR_PATH "'%s'" NONE " Invalid path\n", path);
         return -1;
     }
+    if (!is_dir(dir))
+    	return -1;
+
     get_state()->disk_header->current_directory = get_absolute_address(dir);
     return 0;
 }
@@ -254,10 +258,6 @@ int fs_change_dir(const char* path) {
 
 int fs_remove_file(const char* path) {
     return remove_file(path, T_FILE);
-}
-
-int fs_remove_dir(const char* path) {
-    return remove_file(path, T_DIR);
 }
 
 void fs_close(FSFILE* file) {
@@ -292,6 +292,10 @@ void fs_print_file_info(const FSFILE* file, FILE* output) {
     fprintf(output, NONE "\n");
 }
 
+int fs_pwd(FILE* output) {
+	return print_working_directory(output);
+}
+
 int fs_read(const FSFILE* file, FILE* output) {
     if (!file || !output || !is_initialized())
         return 0;
@@ -312,6 +316,8 @@ int fs_list(const FSFILE* file, FILE* output) {
     if (!output || !is_initialized()) {
         return -1;
     }
+
+    fs_pwd(output);
 
     if (!file) {
         file = get_ptr(get_state()->disk_header->current_directory);
@@ -341,17 +347,7 @@ int fs_get_error() {
         error("%s\n", "File system is not initialized");
         return -1;
     }
-    if (!get_state()->error)
-        return 0;       // Okay, no error
-    get_state()->error = 0; // Error has occured, reset it so that the error is not persistent upon next get_error() call
-    if (!get_state()->err)
-        return -1;
-    char* contents = read_open_file(get_state()->err);
-    if (contents) {
-        printf("%s", contents);
-        free(contents);
-    }
-    return -1;
+    return get_error(stdout);
 }
 
 void fs_free() {
@@ -362,7 +358,6 @@ void fs_free() {
             free(get_state()->disk);
             get_state()->disk = NULL;
         }
-        if (get_state()->err) fclose(get_state()->err);
         if (get_state()->log) fclose(get_state()->log);
         get_state()->disk_header = NULL;
         get_state()->is_initialized = 0;

@@ -18,14 +18,13 @@ static struct argp_option options[] = {
   {"read",       'r', "file",      0,  "Read file"},
   {"create-dir", 'd', "file",      0,  "Create new directory"},
   {"remove",     'x', "file",      0,  "Remove regular file"},
-  {"remove-dir", 'z', "dir",       0,  "Remove directory"},
   {"change-dir", 'v', "dir",       0,  "Change directory"},
   {"list",       'l', "file",      OPTION_ARG_OPTIONAL,  "List directory contents"},
   {"write",      'w', "file",      0,  "Write data to file"},
   {"append",     'a', "file",      0,  "Append data to file"},
   {"info",       'i', "file",      0,  "Print file info"},
   {"options",    'o', 0,           0,  "Get all options"},
-  {"path",       'p', "path",      0,  "Specify data path"},
+  {"pwd",        'p', 0,		   0,  "Print working directory"},
   { 0 }
 };
 
@@ -96,13 +95,6 @@ error_t parse_option(int key, char* arg, struct argp_state* state) {
         }
             break;
 
-        case 'z': {
-            if (fs_remove_dir(arg) != 0) {
-                fs_get_error();
-            }
-        }
-            break;
-
         case 'v': {
             if (fs_change_dir(arg) != 0) {
                 fs_get_error();
@@ -165,19 +157,7 @@ error_t parse_option(int key, char* arg, struct argp_state* state) {
             break;
 
         case 'p': {
-            DIR* dir = opendir(arg);
-            if (!dir) {
-                fprintf(stderr, "Failed to set path ('%s')\n", arg);
-                return 0;
-            }
-            closedir(dir);
-            FILE* file = fopen(DATA_PATH "/.path", "w");
-            if (!file) {
-                printf("Path file doesn't exist\n");
-                return 0;
-            }
-            fprintf(file, "%s\n", arg);
-            fclose(file);
+            fs_pwd(arguments->output_file);
         }
             break;
 

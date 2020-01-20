@@ -32,7 +32,6 @@ install: build_release
 	chmod o+x $(PROGRAM_NAME)
 	mkdir -p $(INSTALL_SHARE)/$(PROGRAM_NAME)/
 	cp -a ./$(PROGRAM_NAME) $(INSTALL_BIN)/$(PROGRAM_NAME)
-	cp -a ./.path $(DATA_PATH)/
 
 	chmod o+x $(INSTALL_SHARE)/$(PROGRAM_NAME)/
 	rsync -a ./$(PROGRAM_NAME) $(INSTALL_SHARE)/$(PROGRAM_NAME)

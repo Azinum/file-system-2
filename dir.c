@@ -8,6 +8,8 @@
 typedef struct FSFILE FSFILE;
 
 static struct FSFILE* get_parent_dir(const FSFILE* dir);
+static struct FSFILE* get_current_dir();
+static int pwd(const FSFILE* current, FILE* output);
 
 struct FSFILE* get_parent_dir(const FSFILE* dir) {
 	assert(dir != NULL);
@@ -20,7 +22,24 @@ struct FSFILE* get_parent_dir(const FSFILE* dir) {
 		addr_t* addr = (addr_t*)block->data;
 		return get_ptr(addr[1]);
 	}
+	error(COLOR_MESSAGE "'%s'" NONE ": Directory is empty\n", dir->name);
 	return NULL;
+}
+
+struct FSFILE* get_current_dir() {
+	return get_ptr(get_state()->disk_header->current_directory);
+}
+
+int pwd(const FSFILE* current, FILE* output) {
+	const struct FSFILE* parent = get_parent_dir(current);
+	if (parent != current) {
+		pwd(parent, output);
+	}
+	if (current->type == T_DIR)
+		fprintf(output, "/");
+	fprintf(output, "%s", current->name);
+
+	return 0;
 }
 
 int read_dir_contents(const struct FSFILE* file, unsigned long block_addr, int iteration, FILE* output) {
@@ -73,10 +92,14 @@ int read_dir_contents(const struct FSFILE* file, unsigned long block_addr, int i
     return read_dir_contents(file, block->next, iteration, output);
 }
 
-// Get relative path directory
-struct FSFILE* get_path_dir(const char* path) {
+// Get relative or absolute path directory (and file if supplied)
+// Assign the last file in the path to file (struct FSFILE** file)
+// Pass in NULL if that isn't needed
+struct FSFILE* get_path_dir(const char* path, struct FSFILE** file) {
     struct FSFILE* dir = get_ptr(get_state()->disk_header->current_directory);
-    
+    if (!file)
+    	file = &dir;
+
     if (!dir) {
         return NULL;
     }
@@ -98,8 +121,8 @@ struct FSFILE* get_path_dir(const char* path) {
     			i += 2;
     			continue;
     		}
-    		dir = get_ptr(get_state()->disk_header->current_directory);
-    		i++;
+			dir = get_current_dir();
+			i++;
     		continue;
     	}
         if (path[i] == '/' || i == path_length) {
@@ -107,12 +130,12 @@ struct FSFILE* get_path_dir(const char* path) {
                 return dir;
             }
             unsigned long id = hash(file_name, index);
-            dir = find_file(dir, id, NULL, NULL);
-            if (!dir) {
+            *file = find_file(dir, id, NULL, NULL);
+            if (!*file) {
                 return NULL;
             }
-            if (dir->type != T_DIR) {
-                return NULL;
+            if (is_dir(*file)) {
+            	dir = *file;
             }
             index = 0;
             continue;
@@ -121,4 +144,45 @@ struct FSFILE* get_path_dir(const char* path) {
     }
 
     return dir;
+}
+
+int print_working_directory(FILE* output) {
+	if (!is_initialized()) return -1;
+	const struct FSFILE* current = get_current_dir();
+	if (!current)
+		return -1;
+
+	fprintf(output, COLOR_PATH);
+	int result = pwd(current, output);
+	fprintf(output, "\n" NONE);
+	return result;
+}
+
+int is_dir(const struct FSFILE* file) {
+	return file->type == T_DIR;
+}
+
+int can_remove_dir(const struct FSFILE* file) {
+	assert(file != NULL);
+
+	if (!is_dir(file)) {
+		error(COLOR_MESSAGE "'%s'" NONE ": File is not a directory\n", file->name);
+		return 0;
+	}
+
+	struct Data_block* block = read_block(file->first_block);
+	assert(block != NULL);	// Directories can't be empty
+	return block->bytes_used == (sizeof(addr_t) * 2);
+}
+
+// UNUSED
+int fill_empty_file_slots(struct Data_block* block, int from_index) {
+	assert(block != NULL);
+
+	addr_t*
+	for (int i = 0; i < block->bytes_used; i++) {
+
+	}
+
+	return 0;
 }

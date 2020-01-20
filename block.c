@@ -47,9 +47,9 @@ int count_blocks(struct Data_block* block) {
 }
 
 int get_size_of_blocks(unsigned long block_addr) {
-    if (block_addr == 0 || block_addr == ULONG_MAX) {
-        return 0;
-    }
+	if (!can_access_address(block_addr)) {
+		return -1;
+	}
     struct Data_block* block = get_ptr(block_addr);
     if (block->next == 0) {
         return block->bytes_used;
@@ -59,10 +59,14 @@ int get_size_of_blocks(unsigned long block_addr) {
 }
 
 struct Data_block* read_block(unsigned long block_addr) {
+	if (!can_access_address(block_addr))
+		return NULL;
+	
     struct Data_block* block = (struct Data_block*)get_ptr(block_addr);
     if (!block) {
         return NULL;
     }
+    assert(block->block_type > BLOCK_NONE && block->block_type < BLOCK_TYPES_COUNT);
     return block;
 }
 
