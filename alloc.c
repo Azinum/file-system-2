@@ -61,13 +61,19 @@ struct FSFILE* allocate_file(const char* path, int file_type) {
     if (!is_initialized()) {
         return NULL;
     }
+    unsigned long path_length = strlen(path);
+
+    if (path_length == 0) {
+        error("Length of name must be greater than 1\n");
+        return NULL;
+    }
 
     assert((file_type > T_NONE) && (file_type < T_END));
 
     struct FSFILE* dir = get_ptr(get_state()->disk_header->current_directory);
 
     unsigned long id = hash2(path);
-    unsigned long empty_slot_addr = 0;
+    addr_t empty_slot_addr = 0;
     if ((find_file(NULL, id, NULL, &empty_slot_addr))) {
         error(COLOR_MESSAGE "'%s'" NONE " File already exists\n", path);
         return NULL;

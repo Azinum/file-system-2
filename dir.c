@@ -179,7 +179,6 @@ int can_remove_dir(const struct FSFILE* file) {
 int fill_empty_file_slots(struct Data_block* block, int from_index) {
 	assert(block != NULL);
 
-	addr_t*
 	for (int i = 0; i < block->bytes_used; i++) {
 
 	}

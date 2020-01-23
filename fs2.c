@@ -46,16 +46,17 @@ int remove_file(const char* path, int file_type) {
         error(COLOR_MESSAGE "'%s'" NONE " No such file or directory\n", path);
         return -1;
     }
+
     addr_t* file_addr = get_ptr(location);
     assert(get_absolute_address(file) == *file_addr);
-    
+
     // To make sure you don't delete the directory you are in
     if (*file_addr == get_state()->disk_header->current_directory || *file_addr == get_state()->disk_header->root_directory) {
         error("Can't remove this directory\n");
         return -1;
     }
 	if (file->type == T_DIR && !can_remove_dir(file)) {
-		error(COLOR_MESSAGE "'%s/'" NONE ": Directory is not empty\n");
+		error(COLOR_MESSAGE "'%s/'" NONE ": Directory is not empty\n", file->name);
 		return -1;
 	}
     if (deallocate_file(file) != 0) {
@@ -229,7 +230,7 @@ FSFILE* fs_create_dir(const char* path) {
     if (file) {
         unsigned long addr = get_absolute_address(file);
         fs_write(&addr, sizeof(unsigned long), file);   // self
-        unsigned long current = get_state()->disk_header->current_directory;
+        addr_t current = get_state()->disk_header->current_directory;
         fs_write(current ? &current : &addr,  sizeof(unsigned long), file);   // parent
         return file;
     }
