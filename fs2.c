@@ -39,15 +39,22 @@ int initialize(struct FS_state* state, unsigned long disk_size) {
 }
 
 int remove_file(const char* path, int file_type) {
-    unsigned long id = hash2(path);
-    addr_t location = 0;
-    FSFILE* file = find_file(NULL, id, &location, NULL);
-    if (!file || !location) {
+    FSFILE* file = NULL;
+    FSFILE* dir = get_path_dir(path, &file);
+    
+    if (file == dir) {
+       error(COLOR_MESSAGE "'%s'" NONE " Can't be removed\n", path);
+        return -1;
+    }
+
+    if (!file || !dir) {
         error(COLOR_MESSAGE "'%s'" NONE " No such file or directory\n", path);
         return -1;
     }
 
-    addr_t* file_addr = get_ptr(location);
+    addr_t* file_addr = NULL;
+    find_in_dir(dir, file, &file_addr);
+
     assert(get_absolute_address(file) == *file_addr);
 
     // To make sure you don't delete the directory you are in

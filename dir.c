@@ -42,6 +42,42 @@ int pwd(const FSFILE* current, FILE* output) {
 	return 0;
 }
 
+// Find the location of the file in this directory
+// Result is assigned to (addr_t* location)
+// Returns 0 for no error (any other return value is an error)
+int find_in_dir(const struct FSFILE* dir, const struct FSFILE* file, addr_t** location) {
+    assert(dir != NULL);
+    assert(file != NULL);
+    assert(dir != file);
+    assert(location != NULL);
+    assert(dir->type == T_DIR);
+
+    addr_t file_addr = get_absolute_address(file);
+
+    struct Data_block* block = read_block(dir->first_block);
+    if (!block) {
+        error(COLOR_MESSAGE "'%s/'" NONE ": Folder is empty\n", dir->name);
+        return -1;
+    }
+    int skip = 2;   // Number to skip parent and current directory in directory we are reading in
+    do {
+        addr_t* addr = (addr_t*)block->data;
+        for (int i = 0; i < block->bytes_used / (sizeof(addr_t)); i++) {
+            if (skip > 0) {
+                skip--;
+                continue;
+            }
+            if (addr[i] == file_addr) {
+                //*location = get_absolute_address(&block->data[i]);
+                *location = &addr[i];
+                return 0;
+            }
+        }
+    } while ((block = read_block(block->next)) != NULL);
+    error(COLOR_MESSAGE "'%s/%s'" NONE ": File address wasn't found in this directory\n", dir->name, file->name);
+    return -1;  // The file wasn't found
+}
+
 int read_dir_contents(const struct FSFILE* file, unsigned long block_addr, int iteration, FILE* output) {
     if (!can_access_address(block_addr)) {
         return -1;
@@ -130,12 +166,16 @@ struct FSFILE* get_path_dir(const char* path, struct FSFILE** file) {
                 return dir;
             }
             unsigned long id = hash(file_name, index);
-            *file = find_file(dir, id, NULL, NULL);
-            if (!*file) {
-                return NULL;
+            FSFILE* tmp = find_file(dir, id, NULL, NULL);
+            if (!tmp) {
+                return dir;
             }
-            if (is_dir(*file)) {
-            	dir = *file;
+            *file = tmp;
+            if ((*file)->type == T_FILE) {
+                return dir;
+            }
+            else {
+                dir = *file;
             }
             index = 0;
             continue;

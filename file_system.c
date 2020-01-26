@@ -58,8 +58,8 @@ struct FSFILE* find_file(struct FSFILE* dir, unsigned long id, unsigned long* lo
 
     struct FSFILE* file = NULL;
     while ((block = read_block(next)) != NULL) {
-        for (unsigned long i = 0; i < block->bytes_used; i += (sizeof(unsigned long))) {
-            addr_t addr = *(unsigned long*)(&block->data[i]);
+        for (unsigned long i = 0; i < block->bytes_used; i += (sizeof(addr_t))) {
+            addr_t addr = *(addr_t*)(&block->data[i]);
             if (addr == 0) {
                 if (empty_slot) *empty_slot = get_absolute_address(&block->data[i]);
                 continue;
@@ -193,7 +193,7 @@ void* get_ptr(unsigned long address) {
 }
 
 // Addresses == 0 are invalid
-unsigned long get_absolute_address(void* address) {
+unsigned long get_absolute_address(const void* address) {
     if (!is_initialized() || !get_state()->disk) {
         return 0;
     }

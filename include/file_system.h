@@ -50,7 +50,7 @@ void write_to_blocks(struct FSFILE* file, const void* data, unsigned long size, 
 // Get pointer from address/index on disk
 void* get_ptr(unsigned long address);
 
-unsigned long get_absolute_address(void* address);
+unsigned long get_absolute_address(const void* address);
 
 int can_access_address(unsigned long address);
 

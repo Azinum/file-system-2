@@ -5,6 +5,8 @@
 
 #include <stdio.h>
 
+int find_in_dir(const struct FSFILE* dir, const struct FSFILE* file, addr_t** location);
+
 int read_dir_contents(const struct FSFILE* file, unsigned long block_addr, int iteration, FILE* output);
 
 struct FSFILE* get_path_dir(const char* path, struct FSFILE** file);
