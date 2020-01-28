@@ -1,6 +1,4 @@
 .DS_Store
-file_system
-file_system.dSYM/
 fs2
 data/*.disk
 log/*.log

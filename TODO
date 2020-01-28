@@ -1,0 +1,21 @@
+TODO LIST for fs2
+
+In progress:
+- Managing files by full (absolute/relative) path (for instance: -c /shared/file.txt, -v ./foo/bar/foobar/, -i ../file.txt)
+- Optimise read/writing (for instance read from last block instead of traversing from start to end)
+- Fix autocomplete of files (with coloring)
+- Cleanup fs_write (write_data) if possible
+- Allow disks to be very big without making the loading time any longer.
+- Deallocate block if it’s empty
+- Modify folder list when deleting files (Move everything one step to the left)
+
+Issues:
+- There are no restrictions when naming files. This is a way to make files unreadable by naming them '.', '/' or similar
+
+Complete:
+- Remove duplicate FSFILE (already defined in fs2.h)
+- Move error handling to seperate files
+- Make changing directories more intuitive
+- Prohibit deletion of folders that are not empty (can only contain self and parent directory files in it)
+
+
