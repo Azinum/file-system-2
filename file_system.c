@@ -56,18 +56,24 @@ struct FSFILE* find_file(struct FSFILE* dir, unsigned long id, unsigned long* lo
     if (next == 0)
         return NULL;
 
+    int skip = 2;   // Skip the two first files (current and parent directory)
     struct FSFILE* file = NULL;
     while ((block = read_block(next)) != NULL) {
-        for (unsigned long i = 0; i < block->bytes_used; i += (sizeof(addr_t))) {
-            addr_t addr = *(addr_t*)(&block->data[i]);
+        addr_t* data = (addr_t*)block->data;
+        for (int i = 0; i < block->bytes_used / sizeof(addr_t); i++) {
+            if (skip) {
+                --skip;
+                continue;
+            }
+            addr_t addr = data[i];
             if (addr == 0) {
-                if (empty_slot) *empty_slot = get_absolute_address(&block->data[i]);
+                if (empty_slot) *empty_slot = get_absolute_address(&data[i]);
                 continue;
             }
             if ((file = get_ptr(addr))) {
                 if (file->id == id) {
                     if (location != NULL) {
-                        *location = get_absolute_address(&block->data[i]);
+                        *location = get_absolute_address(&data[i]);
                     }
                     return file;
                 }

@@ -64,11 +64,10 @@ int find_in_dir(const struct FSFILE* dir, const struct FSFILE* file, addr_t** lo
         addr_t* addr = (addr_t*)block->data;
         for (int i = 0; i < block->bytes_used / (sizeof(addr_t)); i++) {
             if (skip > 0) {
-                skip--;
+                --skip;
                 continue;
             }
             if (addr[i] == file_addr) {
-                //*location = get_absolute_address(&block->data[i]);
                 *location = &addr[i];
                 return 0;
             }
@@ -150,14 +149,13 @@ struct FSFILE* get_path_dir(const char* path, struct FSFILE** file) {
     		continue;
     	}
     	if (path[i] == '.' && index == 0) {
-    		// '..' The user wants to access the parent directory
+            // '..' The user wants to access the parent directory
     		// Read the second file of the directory
     		if (path[i + 1] == '.') {
     			dir = get_parent_dir(dir);
     			i += 2;
     			continue;
     		}
-			dir = get_current_dir();
 			i++;
     		continue;
     	}
@@ -168,7 +166,8 @@ struct FSFILE* get_path_dir(const char* path, struct FSFILE** file) {
             unsigned long id = hash(file_name, index);
             FSFILE* tmp = find_file(dir, id, NULL, NULL);
             if (!tmp) {
-                return dir;
+                error(COLOR_MESSAGE "'%s'" NONE ": Invalid path", path);
+                return NULL;
             }
             *file = tmp;
             if ((*file)->type == T_FILE) {

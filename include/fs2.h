@@ -33,7 +33,7 @@ int fs_pwd(FILE* output);
 
 int fs_read(const FSFILE* file, FILE* output);
 
-int fs_list(const FSFILE* file, FILE* output);
+int fs_list(const char* path, FILE* output);
 
 void fs_dump_disk(const char* path);
 

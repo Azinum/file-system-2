@@ -320,22 +320,30 @@ int fs_read(const FSFILE* file, FILE* output) {
     return 0;
 }
 
-int fs_list(const FSFILE* file, FILE* output) {
+int fs_list(const char* path, FILE* output) {
     if (!output || !is_initialized()) {
         return -1;
     }
 
-    fs_pwd(output);
+    FSFILE* dir = NULL;
 
-    if (!file) {
-        file = get_ptr(get_state()->disk_header->current_directory);
-        if (!file) {
+    if (!path) {
+        dir = get_ptr(get_state()->disk_header->current_directory);
+        if (!dir) {
             error("Current directory isn't set\n");
             return -1;
         }
     }
-
-    return read_dir_contents(file, file->first_block, 0, output);
+    else {
+        dir = get_path_dir(path, NULL);
+        if (!dir) {
+            error(COLOR_MESSAGE "'%s'" NONE ": Invalid path\n", path);
+            return -1;
+        }
+    }
+    
+    fs_pwd(output);
+    return read_dir_contents(dir, dir->first_block, 0, output);
 }
 
 void fs_dump_disk(const char* path) {

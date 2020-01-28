@@ -107,11 +107,8 @@ error_t parse_option(int key, char* arg, struct argp_state* state) {
                 fs_list(NULL, arguments->output_file);
                 break;
             }
-            FSFILE* dir = fs_open_dir(*args);
-            if (fs_get_error() != 0) break;
-            fs_list(dir, arguments->output_file);
+            fs_list(*args, arguments->output_file);
             fs_get_error();
-            fs_close(dir);
         }
             break;
 
