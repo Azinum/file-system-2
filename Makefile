@@ -4,7 +4,9 @@ CC=gcc
 
 PROGRAM_NAME=fs2
 
-FLAGS=-o $(PROGRAM_NAME) *.c -std=c99 -Iinclude -Wall
+SRC_FILES=src/*.c
+
+FLAGS=-o $(PROGRAM_NAME) $(SRC_FILES) -std=c99 -Iinclude -Wall -largp
 
 # Need to link argp on OSX
 FLAGS_MAC=-largp
